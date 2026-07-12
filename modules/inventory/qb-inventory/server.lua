@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: qb-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('qb-inventory', 'qb-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: qb-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['qb-inventory'] = Inventory
 
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'shop' then
@@ -95,4 +94,12 @@ Inventory.createShop = function(shopName, data)
         slots = #data.inventory,
         items = data.inventory
     })
+end
+---qb-inventory creates stashes lazily on open; nothing to pre-register.
+Inventory.registerStash = function(stashId, label, slots, weight, groups, coords, opts)
+    return true
+end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    return false
 end

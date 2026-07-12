@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: origen_inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('origen_inventory', 'origen_inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: origen_inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['origen_inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     exports['origen_inventory']:openInventory(invType, data)

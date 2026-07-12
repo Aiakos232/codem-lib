@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: ox_inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('ox_inventory', 'ox_inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: ox_inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['ox_inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     exports['ox_inventory']:openInventory(invType, data)
@@ -23,4 +22,9 @@ end
 
 Inventory.getPlayerItems = function()
     return exports['ox_inventory']:GetPlayerItems()
+end
+---Open a stash by id. Returns true when handled client-side.
+Inventory.openStash = function(stashId, invData)
+    exports.ox_inventory:openInventory('stash', stashId)
+    return true
 end

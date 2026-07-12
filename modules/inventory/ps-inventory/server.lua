@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: ps-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('ps-inventory', 'ps-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: ps-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['ps-inventory'] = Inventory
 
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'shop' then

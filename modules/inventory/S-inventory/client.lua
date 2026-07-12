@@ -1,15 +1,20 @@
 -- codem-lib inventory provider: S-inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('S-Inventory', 'S-Inventory') then return end
-
-local ESX = exports['es_extended']:getSharedObject()
+-- Registered at load; the exports pick the active provider per call.
+-- ESX is resolved lazily: this file loads on every server, but the shared
+-- object only exists when es_extended is actually running.
+local ESX
+local function getESX()
+    if not ESX then ESX = exports['es_extended']:getSharedObject() end
+    return ESX
+end
 
 
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: S-Inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['S-inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     if invType == 'player' then
@@ -22,7 +27,7 @@ Inventory.openInventory = function(invType, data)
 end
 
 Inventory.getItemCount = function(itemName)
-    local items = ESX.GetPlayerData().inventory
+    local items = getESX().GetPlayerData().inventory
     if items then
         for k, v in pairs(items) do
             if v.name == itemName then

@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: jpr-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('jpr-inventory', 'jpr-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: jpr-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['jpr-inventory'] = Inventory
 
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'shop' then

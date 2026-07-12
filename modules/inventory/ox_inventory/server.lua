@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: ox_inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('ox_inventory', 'ox_inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: ox_inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['ox_inventory'] = Inventory
 
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
@@ -58,4 +57,16 @@ Inventory.createShop = function(shopName, data)
 
     Citizen.Wait(100)
     exports['ox_inventory']:RegisterShop(shopName, data)
+end
+---Register a stash. groups: { [job] = minGrade } map.
+Inventory.registerStash = function(stashId, label, slots, weight, groups, coords, opts)
+    -- (ox_inventory has no item whitelist parameter; restrictions are
+    -- inventory-specific and simply ignored here.)
+    exports.ox_inventory:RegisterStash(stashId, label, slots, weight, nil, groups, coords)
+    return true
+end
+
+---Server-side stash open; ox opens client-side, nothing to do.
+Inventory.openStashServer = function(src, stashId, invData)
+    return false
 end

@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: qb-inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('qb-inventory', 'qb-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: qb-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['qb-inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then
@@ -55,4 +54,13 @@ end
 Inventory.getItemData = function(itemName)
     local info = QBCore.Shared.Items[itemName]
     return info and {name = itemName, label = info.label, description = info.description, image = ('https://cfx-nui-qb-inventory/html/images/%s.png'):format(itemName)}
+end
+---Open a stash by id. Returns true when handled client-side.
+Inventory.openStash = function(stashId, invData)
+    TriggerServerEvent('inventory:server:OpenInventory', 'stash', stashId, {
+        maxweight = invData and invData.maxweight or 100000,
+        slots = invData and invData.slots or 50,
+    })
+    TriggerEvent('inventory:client:SetCurrentStash', stashId)
+    return true
 end

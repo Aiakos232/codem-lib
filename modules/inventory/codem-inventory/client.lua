@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: codem-inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('codem-inventory', 'codem-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: codem-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['codem-inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then

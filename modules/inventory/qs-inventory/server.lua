@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: qs-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('qs-inventory', 'qs-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: qs-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['qs-inventory'] = Inventory
 
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]

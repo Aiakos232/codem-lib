@@ -4,18 +4,31 @@
     `Inventory` table (exports.lua exposes it).
 ]]
 
----True when the given provider should load: explicit config match, or
----('auto') the provider's resource is running.
----@param resource string resource name to detect
----@param key string config key (usually the same as resource)
----@return boolean
-function LibInventoryActive(resource, key)
+-- Every provider file registers its implementation here at load time; the
+-- exports resolve the ACTIVE one per call (so start order never matters).
+LibInventoryProviders = LibInventoryProviders or {}
+
+-- 'auto' detection order — first running resource wins.
+local CANDIDATES = {
+    'ox_inventory', 'qb-inventory', 'ps-inventory', 'qs-inventory',
+    'codem-inventory', 'core_inventory', 'tgiann-inventory', 'origen_inventory',
+    'ak47_inventory', 'jaksam_inventory', 'jpr-inventory', 'S-inventory',
+}
+
+---Resolve the active inventory resource name, or nil when none is running.
+---@return string|nil
+function LibGetInventoryResource()
     local cfg = (LibConfig.Inventory and LibConfig.Inventory.provider) or 'auto'
-    if cfg == 'auto' then
-        return GetResourceState(resource) == 'started'
+    if cfg ~= 'auto' then
+        return GetResourceState(cfg) == 'started' and cfg or nil
     end
-    return cfg == key or cfg == resource
+    for _, res in ipairs(CANDIDATES) do
+        if GetResourceState(res) == 'started' then return res end
+    end
+    return nil
 end
+
+exports('GetInventoryResource', LibGetInventoryResource)
 
 if IsDuplicityVersion() then
     ---Framework-agnostic unique player identifier (citizenid / identifier).

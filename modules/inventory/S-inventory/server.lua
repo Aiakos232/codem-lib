@@ -1,19 +1,24 @@
 -- codem-lib inventory provider: S-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('S-inventory', 'S-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: S-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['S-inventory'] = Inventory
 
-local ESX = exports['es_extended']:getSharedObject()
+-- ESX is resolved lazily: this file loads on every server, but the shared
+-- object only exists when es_extended is actually running.
+local ESX
+local function getESX()
+    if not ESX then ESX = exports['es_extended']:getSharedObject() end
+    return ESX
+end
 
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)
-    local xPlayer = ESX.GetPlayerFromId(playerId)
+    local xPlayer = getESX().GetPlayerFromId(playerId)
     return xPlayer.getInventory()
 end
 
@@ -30,7 +35,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    local xPlayer = ESX.GetPlayerFromId(playerId)
+    local xPlayer = getESX().GetPlayerFromId(playerId)
     xPlayer.addInventoryItem(itemName, itemCount)
 end
 
@@ -40,7 +45,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    local xPlayer = ESX.GetPlayerFromId(playerId)
+    local xPlayer = getESX().GetPlayerFromId(playerId)
     xPlayer.removeInventoryItem(itemName, itemCount, itemMetadata)
 end
 
@@ -49,12 +54,12 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@return count: number [amount of items in inventory]
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)
-    local xPlayer = ESX.GetPlayerFromId(playerId)
+    local xPlayer = getESX().GetPlayerFromId(playerId)
     return xPlayer.getInventoryItem(itemName)?.count or 0
 end
 
 Inventory.getItemSlot = function(playerId, slot)
-    local xPlayer = ESX.GetPlayerFromId(playerId)
+    local xPlayer = getESX().GetPlayerFromId(playerId)
     local items = xPlayer.getInventory()
     return items[slot]
 end
@@ -67,6 +72,9 @@ Inventory.itemsData = {}
 GlobalState['codem-lib:itemsData'] = Inventory.itemsData
 
 Citizen.CreateThread(function()
+    -- Item metadata cache is only useful when S-inventory itself is running
+    -- (its `items` table is ESX-specific); skip everywhere else.
+    if GetResourceState('S-inventory') ~= 'started' then return end
     while not MySQL?.ready do
         Citizen.Wait(100)
     end

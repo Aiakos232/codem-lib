@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: tgiann-inventory (server)
--- Active only when this provider is selected.
-if not LibInventoryActive('tgiann-inventory', 'tgiann-inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: tgiann-inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['tgiann-inventory'] = Inventory
 
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
@@ -108,3 +107,29 @@ RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
         exports["tgiann-inventory"]:OpenShop(source, data.type)
     end
 end)
+---Register a stash. Uses the table form (the positional whitelist slot is
+---unreliable); tgiann supports item whitelist/blacklist restrictions.
+Inventory.registerStash = function(stashId, label, slots, weight, groups, coords, opts)
+    local jobs
+    if groups then
+        jobs = {}
+        for jobName in pairs(groups) do jobs[#jobs + 1] = jobName end
+    end
+    exports['tgiann-inventory']:RegisterStash({
+        name      = stashId,
+        label     = label,
+        slots     = slots,
+        maxWeight = weight,
+        whitelist = opts and opts.whitelist,
+        blacklist = opts and opts.blacklist,
+        jobs      = jobs,
+        coords    = coords,
+    })
+    return true
+end
+
+---tgiann stashes open server-side.
+Inventory.openStashServer = function(src, stashId, invData)
+    exports['tgiann-inventory']:OpenInventory(src, 'stash', stashId, invData)
+    return true
+end

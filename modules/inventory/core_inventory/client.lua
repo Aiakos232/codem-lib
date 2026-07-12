@@ -1,12 +1,11 @@
 -- codem-lib inventory provider: core_inventory (client)
--- Active only when this provider is selected.
-if not LibInventoryActive('core_inventory', 'core_inventory') then return end
-
+-- Registered at load; the exports pick the active provider per call.
 if LibConfig.Debug then
     print('[codem-lib] Inventory provider loaded: core_inventory')
 end
 
-Inventory = {}
+local Inventory = {}
+LibInventoryProviders['core_inventory'] = Inventory
 
 Inventory.openInventory = function(invType, data)
     if invType == 'player' then

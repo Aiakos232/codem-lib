@@ -15,6 +15,15 @@
     'auto' picks ox_target first, then qb-target.
 ]]
 
+-- Pull the lib config into this context if the consumer did not load it.
+if type(LibConfig) ~= 'table' then
+    local cfg = LoadResourceFile('codem-lib', 'config.lua')
+    if cfg then
+        local fn = load(cfg, '@@codem-lib/config.lua')
+        if fn then fn() end
+    end
+end
+
 local FW_TARGET = (type(LibConfig) == 'table' and LibConfig.Target and LibConfig.Target.provider)
     or (type(Config) == 'table' and Config.Target)
     or 'auto'

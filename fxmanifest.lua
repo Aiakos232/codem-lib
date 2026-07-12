@@ -27,6 +27,7 @@ server_scripts {
 files {
     'init.lua',
     'config.lua',
+    'framework.lua',
     'modules/framework/**/*.lua',
     'modules/target/client.lua',
 }

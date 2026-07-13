@@ -7,7 +7,7 @@
       - LibConfig            (provider selection)
       - Framework.Client/Server bridge (right framework, right side)
       - Target bridge        (client only; ox_target / qb-target)
-      - Lib.*                (Society / Keys / Fuel / Notify / Inventory shims
+      - CodemLib.*                (Society / Keys / Fuel / Notify / Inventory shims
                               over the codem-lib exports)
 ]]
 
@@ -43,12 +43,12 @@ if not IsDuplicityVersion() then
     loadLibFile('modules/target/client.lua')
 end
 
--- 4) Lib.* shims over the codem-lib exports.
-Lib = Lib or {}
+-- 4) CodemLib.* shims over the codem-lib exports.
+CodemLib = CodemLib or {}
 
 if IsDuplicityVersion() then
     -- ── Server ──────────────────────────────────────────────────────────────
-    Lib.Society = {
+    CodemLib.Society = {
         ---@param account string society/job name
         ---@param amount number
         ---@return boolean
@@ -62,7 +62,7 @@ if IsDuplicityVersion() then
         Balance = function(account) return exports[LIB]:SocietyBalance(account) end,
     }
 
-    Lib.Keys = {
+    CodemLib.Keys = {
         ---@param src number player server id
         ---@param vehicle number vehicle entity
         ---@param plate? string
@@ -73,7 +73,7 @@ if IsDuplicityVersion() then
         Remove = function(src, vehicle, plate) return exports[LIB]:RemoveKeys(src, vehicle, plate) end,
     }
 
-    Lib.Fuel = {
+    CodemLib.Fuel = {
         ---@param src number player server id (used when the provider is client-side)
         ---@param vehicle number vehicle entity
         ---@param amount number fuel level 0-100
@@ -84,11 +84,11 @@ if IsDuplicityVersion() then
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
     ---@param duration? number ms
-    Lib.Notify = function(src, message, nType, duration)
+    CodemLib.Notify = function(src, message, nType, duration)
         return exports[LIB]:Notify(src, message, nType, duration)
     end
 
-    Lib.Inventory = {
+    CodemLib.Inventory = {
         ---@param src number @return table items
         Items = function(src) return exports[LIB]:GetPlayerItems(src) end,
         ---@param src number, itemName string, count number, metadata? table, slot? number
@@ -108,7 +108,7 @@ if IsDuplicityVersion() then
     }
 else
     -- ── Client ──────────────────────────────────────────────────────────────
-    Lib.Keys = {
+    CodemLib.Keys = {
         ---@param vehicle number vehicle entity
         ---@param plate? string
         Give = function(vehicle, plate) return exports[LIB]:GiveKeys(vehicle, plate) end,
@@ -117,7 +117,7 @@ else
         Remove = function(vehicle, plate) return exports[LIB]:RemoveKeys(vehicle, plate) end,
     }
 
-    Lib.Fuel = {
+    CodemLib.Fuel = {
         ---@param vehicle number vehicle entity
         ---@param amount number fuel level 0-100
         Set = function(vehicle, amount) return exports[LIB]:SetFuel(vehicle, amount) end,
@@ -126,11 +126,11 @@ else
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
     ---@param duration? number ms
-    Lib.Notify = function(message, nType, duration)
+    CodemLib.Notify = function(message, nType, duration)
         return exports[LIB]:Notify(message, nType, duration)
     end
 
-    Lib.TextUI = {
+    CodemLib.TextUI = {
         ---@param text string
         ---@param opts? { position?: string, icon?: string }
         Show = function(text, opts) return exports[LIB]:ShowTextUI(text, opts) end,
@@ -139,14 +139,14 @@ else
 
     ---@param opts { label: string, duration: number, canCancel?: boolean, useWhileDead?: boolean, disable?: table, anim?: table, prop?: table }
     ---@return boolean completed
-    Lib.Progress = function(opts) return exports[LIB]:Progress(opts) end
+    CodemLib.Progress = function(opts) return exports[LIB]:Progress(opts) end
 
     ---@param difficulty string|string[]
     ---@param inputs? string[]
     ---@return boolean passed
-    Lib.SkillCheck = function(difficulty, inputs) return exports[LIB]:SkillCheck(difficulty, inputs) end
+    CodemLib.SkillCheck = function(difficulty, inputs) return exports[LIB]:SkillCheck(difficulty, inputs) end
 
-    Lib.Inventory = {
+    CodemLib.Inventory = {
         Open = function(invType, data) return exports[LIB]:OpenInventory(invType, data) end,
         ---@return number
         Count = function(itemName, metadata) return exports[LIB]:GetItemCount(itemName, metadata) end,

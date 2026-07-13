@@ -13,6 +13,11 @@ local PROVIDERS = {
         notify = function(m, t, d) TriggerEvent('codem-notification:Create', m, t, nil, d) end,
     },
 
+    -- Argument order is (type, text, duration) on this one.
+    ['codem-supreme-notification'] = {
+        notify = function(m, t, d) exports['codem-supreme-notification']:SendNotification(t, m, d) end,
+    },
+
     ['okokNotify'] = {
         notify = function(m, t, d) exports['okokNotify']:Alert('', m, d, t, false) end,
     },
@@ -81,6 +86,7 @@ local PROVIDERS = {
 -- 'auto' detection order — dedicated notify scripts win; ox_lib is the
 -- final fallback (always running).
 local CANDIDATES = {
+    'codem-supreme-notification',
     'codem-notification', 'okokNotify', 'brutal_notify', 'g-notifications',
     'is_ui', 'lation_ui', 'vms_notifyv2', 'wasabi_uikit',
     'mythic_notify', '17mov_Hud', 'gs-notify',

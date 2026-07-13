@@ -31,6 +31,24 @@ LibConfig.Inventory = {
     provider = 'auto',
 }
 
+-- Text UI provider (persistent on-screen prompts).
+-- Supported: 'okokTextUI' | 'cd_drawtextui' | 'ox' | 'auto'
+LibConfig.TextUI = {
+    provider = 'auto',
+}
+
+-- Progress bar provider (blocking timed actions).
+-- Supported: 'progressbar' (qb) | 'ox' | 'auto'
+LibConfig.Progress = {
+    provider = 'auto',
+}
+
+-- Skill check / minigame provider.
+-- Supported: 'ps-ui' | 'ox' | 'auto'
+LibConfig.SkillCheck = {
+    provider = 'auto',
+}
+
 -- Notification provider.
 -- Supported: 'codem-notification' | 'okokNotify' | 'brutal_notify'
 -- | 'g-notifications' | 'is_ui' | 'lation_ui' | 'vms_notifyv2' | 'wasabi_uikit'

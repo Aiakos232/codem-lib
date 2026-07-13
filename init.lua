@@ -130,6 +130,22 @@ else
         return exports[LIB]:Notify(message, nType, duration)
     end
 
+    Lib.TextUI = {
+        ---@param text string
+        ---@param opts? { position?: string, icon?: string }
+        Show = function(text, opts) return exports[LIB]:ShowTextUI(text, opts) end,
+        Hide = function() return exports[LIB]:HideTextUI() end,
+    }
+
+    ---@param opts { label: string, duration: number, canCancel?: boolean, useWhileDead?: boolean, disable?: table, anim?: table, prop?: table }
+    ---@return boolean completed
+    Lib.Progress = function(opts) return exports[LIB]:Progress(opts) end
+
+    ---@param difficulty string|string[]
+    ---@param inputs? string[]
+    ---@return boolean passed
+    Lib.SkillCheck = function(difficulty, inputs) return exports[LIB]:SkillCheck(difficulty, inputs) end
+
     Lib.Inventory = {
         Open = function(invType, data) return exports[LIB]:OpenInventory(invType, data) end,
         ---@return number

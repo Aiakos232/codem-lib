@@ -49,10 +49,10 @@ function Framework.Client.GetBalance(account)
     return 0
 end
 
--- Only the framework-native notify lives here; the public Framework.Client.Notify
--- (plus ShowTextUI / ProgressBar) is built once in modules/ui/client.lua.
+-- Routed through the lib's notify module (modules/notify), so the provider
+-- configured in LibConfig.Notify decides how it looks.
 function Framework.Client.FrameworkNotify(message, nType, duration)
-    ESX.ShowNotification(message, nType, duration or 5000)
+    exports['codem-lib']:Notify(message, nType, duration)
 end
 
 function Framework.Client.ToggleHud(toggle)

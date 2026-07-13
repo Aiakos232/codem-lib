@@ -61,20 +61,16 @@ end
 
 --------------------------------------------------------------------------------
 -- Notifications / HUD
--- Only the framework-native notify lives here. The public Framework.Client.Notify
--- (plus ShowTextUI / ProgressBar) is built once in modules/ui/client.lua and
--- falls back to this when no UI resource is selected.
+-- Routed through the lib's notify module (modules/notify), so the provider
+-- configured in LibConfig.Notify decides how it looks — the framework's own
+-- notification is just one of the providers ('framework').
 --------------------------------------------------------------------------------
 
 ---@param message string
 ---@param nType? string 'success' | 'error' | 'inform' | 'warning'
 ---@param duration? number
 function Framework.Client.FrameworkNotify(message, nType, duration)
-    if isQbox then
-        exports.qbx_core:Notify(message, nType or 'inform', duration or 5000)
-    else
-        QBCore.Functions.Notify(message, nType or 'primary', duration or 5000)
-    end
+    exports['codem-lib']:Notify(message, nType, duration)
 end
 
 ---@param toggle boolean

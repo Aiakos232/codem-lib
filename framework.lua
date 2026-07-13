@@ -6,7 +6,9 @@
     Resolves the active framework (LibConfig.Framework > the consumer's
     Config.Framework > auto-detection) and loads ONLY that implementation
     into the consumer's own context, on the correct side (client/server).
-    After this file runs, `Framework.Client` / `Framework.Server` exist.
+    After this file runs, `CodemLib.Framework` points at the loaded side's
+    bridge table (the internal `Framework.Client` / `Framework.Server`),
+    so consumers call e.g. CodemLib.Framework.GetPlayerJob() on either side.
 ]]
 
 -- Pull the lib config into this context if the consumer did not load it.
@@ -54,3 +56,9 @@ if not fn then
 end
 
 fn()
+
+-- Public alias: one namespace, no Client/Server split at the call site — the
+-- right side's table was just loaded above. Shares the table reference, so
+-- fields the implementation fills in later stay visible.
+CodemLib = CodemLib or {}
+CodemLib.Framework = IsDuplicityVersion() and Framework.Server or Framework.Client

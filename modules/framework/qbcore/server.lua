@@ -94,7 +94,9 @@ end
 function Framework.Server.RemoveMoney(src, amount, account)
     local Player = Framework.Server.GetPlayer(src)
     if not Player then return false end
-    return Player.Functions.RemoveMoney(account, amount, 'codem-mechanicv2') and true or false
+    -- This file runs inside the consumer resource's context, so the money
+    -- reason is whatever script pulled in the lib - not a hardcoded name.
+    return Player.Functions.RemoveMoney(account, amount, GetCurrentResourceName()) and true or false
 end
 
 ---@param src number
@@ -104,7 +106,7 @@ end
 function Framework.Server.AddMoney(src, amount, account)
     local Player = Framework.Server.GetPlayer(src)
     if not Player then return false end
-    return Player.Functions.AddMoney(account, amount, 'codem-mechanicv2') and true or false
+    return Player.Functions.AddMoney(account, amount, GetCurrentResourceName()) and true or false
 end
 
 --------------------------------------------------------------------------------
@@ -160,15 +162,12 @@ end
 -- Notifications
 --------------------------------------------------------------------------------
 
+---Routed through the lib's notify module so LibConfig.Notify picks the look.
 ---@param src number
 ---@param message string
 ---@param nType? string
 function Framework.Server.Notify(src, message, nType)
-    if isQbox then
-        exports.qbx_core:Notify(src, message, nType or 'inform')
-    else
-        TriggerClientEvent('QBCore:Notify', src, message, nType or 'primary')
-    end
+    exports['codem-lib']:Notify(src, message, nType)
 end
 
 --------------------------------------------------------------------------------

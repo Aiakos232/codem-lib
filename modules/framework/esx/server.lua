@@ -99,8 +99,9 @@ function Framework.Server.CreateUseableItem(name, cb)
     end)
 end
 
-function Framework.Server.Notify(src, message, _nType)
-    TriggerClientEvent('esx:showNotification', src, message)
+---Routed through the lib's notify module so LibConfig.Notify picks the look.
+function Framework.Server.Notify(src, message, nType)
+    exports['codem-lib']:Notify(src, message, nType)
 end
 
 --------------------------------------------------------------------------------

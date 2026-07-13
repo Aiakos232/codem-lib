@@ -50,6 +50,8 @@ function Framework.Server.GetPlayerJob(src)
         label = xPlayer.job.label,
         grade = xPlayer.job.grade,
         onduty = true,
+        -- ESX has no isboss flag; the 'boss' grade name is the convention.
+        isboss = xPlayer.job.grade_name == 'boss',
     }
 end
 
@@ -129,10 +131,9 @@ function Framework.Server.ClearJobEmployeesCache(job)
     employeeCache[job] = nil
 end
 
----Everyone employed at `job`, online or offline.
----@param job string
----@return { cid: string, name: string, grade: string|number }[]
-function Framework.Server.GetJobEmployees(job)
+---Offline snapshot from the DB. users only updates on the save cycle, so it
+---LAGS for anyone online - the live pass in GetJobEmployees overrides it.
+local function dbJobEmployees(job)
     local hit = employeeCache[job]
     if hit and (GetGameTimer() - hit.at) < EMPLOYEE_CACHE_MS then return hit.rows end
 
@@ -153,6 +154,58 @@ function Framework.Server.GetJobEmployees(job)
     end
 
     employeeCache[job] = { at = GetGameTimer(), rows = out }
+    return out
+end
+
+---Everyone employed at `job`, online or offline. Online players are read from
+---memory every call and their CURRENT job overrides the stale DB row.
+---@param job string
+---@return { cid: string, name: string, grade: string|number }[]
+function Framework.Server.GetJobEmployees(job)
+    -- Live pass: [identifier] = entry when on this job, false when online
+    -- with a different job (their DB row may still say this job - drop it).
+    local online = {}
+    for _, xPlayer in pairs(ESX.GetExtendedPlayers() or {}) do
+        if xPlayer and xPlayer.identifier then
+            if xPlayer.job and xPlayer.job.name == job then
+                online[xPlayer.identifier] = {
+                    cid   = xPlayer.identifier,
+                    name  = (xPlayer.getName and xPlayer.getName()) or xPlayer.identifier,
+                    grade = xPlayer.job.grade_label or xPlayer.job.grade or 0,
+                }
+            else
+                online[xPlayer.identifier] = false
+            end
+        end
+    end
+
+    local out, added = {}, {}
+    for _, row in ipairs(dbJobEmployees(job)) do
+        local live = online[row.cid]
+        if live == nil then
+            out[#out + 1] = row -- offline: DB is the truth
+        elseif live then
+            out[#out + 1] = live -- online, same job: live data wins
+        end
+        added[row.cid] = true
+    end
+    for cid, live in pairs(online) do
+        if live and not added[cid] then out[#out + 1] = live end
+    end
+    return out
+end
+
+---Grade list for a job (job_grades table), sorted by level.
+---@param job string
+---@return { level: number, label: string }[]
+function Framework.Server.GetJobGrades(job)
+    local rows = dbQuery(
+        'SELECT grade, label FROM job_grades WHERE job_name = ? ORDER BY grade ASC', { job }
+    ) or {}
+    local out = {}
+    for _, row in ipairs(rows) do
+        out[#out + 1] = { level = row.grade, label = row.label or tostring(row.grade) }
+    end
     return out
 end
 

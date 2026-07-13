@@ -71,6 +71,7 @@ function Framework.Server.GetPlayerJob(src)
         label = job.label,
         grade = job.grade and job.grade.level or 0,
         onduty = job.onduty or false,
+        isboss = job.isboss == true,
     }
 end
 
@@ -172,10 +173,10 @@ function Framework.Server.ClearJobEmployeesCache(job)
     employeeCache[job] = nil
 end
 
----Everyone employed at `job`, online or offline.
----@param job string
----@return { cid: string, name: string, grade: string|number }[]
-function Framework.Server.GetJobEmployees(job)
+---Offline snapshot from the DB. The players table only updates on the save
+---cycle (logout/interval), so this LAGS for anyone online - the live pass in
+---GetJobEmployees overrides it. Cached per job (TTL) against rescans.
+local function dbJobEmployees(job)
     local hit = employeeCache[job]
     if hit and (GetGameTimer() - hit.at) < EMPLOYEE_CACHE_MS then return hit.rows end
 
@@ -202,6 +203,75 @@ function Framework.Server.GetJobEmployees(job)
     return out
 end
 
+local function onlinePlayers()
+    if isQbox then
+        return exports.qbx_core:GetQBPlayers()
+    end
+    return QBCore.Functions.GetQBPlayers()
+end
+
+---Everyone employed at `job`, online or offline. Online players are read from
+---memory every call (cheap) and their CURRENT job overrides the stale DB row:
+---someone hired seconds ago shows up, someone who just switched jobs drops.
+---@param job string
+---@return { cid: string, name: string, grade: string|number }[]
+function Framework.Server.GetJobEmployees(job)
+    -- Live pass: [cid] = entry when on this job, false when online with a
+    -- different job (their DB row may still say this job - must be dropped).
+    local online = {}
+    for _, player in pairs(onlinePlayers() or {}) do
+        local pd = player and player.PlayerData
+        if pd and pd.citizenid then
+            if pd.job and pd.job.name == job then
+                local ci = pd.charinfo or {}
+                online[pd.citizenid] = {
+                    cid   = pd.citizenid,
+                    name  = ('%s %s'):format(ci.firstname or '', ci.lastname or ''):gsub('%s+$', ''),
+                    grade = pd.job.grade and (pd.job.grade.name or pd.job.grade.level) or 0,
+                }
+            else
+                online[pd.citizenid] = false
+            end
+        end
+    end
+
+    local out, added = {}, {}
+    for _, row in ipairs(dbJobEmployees(job)) do
+        local live = online[row.cid]
+        if live == nil then
+            out[#out + 1] = row -- offline: DB is the truth
+        elseif live then
+            out[#out + 1] = live -- online, same job: live data wins
+        end
+        -- live == false: online but no longer on this job - drop the row.
+        added[row.cid] = true
+    end
+    for cid, live in pairs(online) do
+        if live and not added[cid] then out[#out + 1] = live end
+    end
+    return out
+end
+
+---Grade list for a job from the shared jobs data, sorted by level.
+---@param job string
+---@return { level: number, label: string }[]
+function Framework.Server.GetJobGrades(job)
+    local jobs
+    if isQbox then
+        local ok, j = pcall(function() return exports.qbx_core:GetJobs() end)
+        jobs = ok and j or {}
+    else
+        jobs = QBCore.Shared.Jobs or {}
+    end
+    local data = jobs[job]
+    local out = {}
+    for k, g in pairs(data and data.grades or {}) do
+        out[#out + 1] = { level = tonumber(k) or 0, label = g.name or g.label or tostring(k) }
+    end
+    table.sort(out, function(a, b) return a.level < b.level end)
+    return out
+end
+
 ---Online player object by citizenid, or nil when offline.
 local function playerByCid(cid)
     if isQbox then
@@ -210,14 +280,45 @@ local function playerByCid(cid)
     return QBCore.Functions.GetPlayerByCitizenId(cid)
 end
 
----Offline player object by citizenid (job changes go through the core's own
----player object + Save, never raw SQL - keeps the stored JSON shape intact).
-local function offlinePlayerByCid(cid)
+---Offline job change through the core's own objects, never raw SQL.
+---qb-core: offline player object supports Functions.SetJob + Save.
+---Qbox: the offline object's Functions.SetJob resolves a source internally
+---and errors for offline players - build the job table on PlayerData from
+---the shared jobs data and persist with SaveOffline instead.
+local function setOfflineJob(cid, name, grade)
     if isQbox then
-        local ok, player = pcall(function() return exports.qbx_core:GetOfflinePlayer(cid) end)
-        return ok and player or nil
+        local okGet, offline = pcall(function() return exports.qbx_core:GetOfflinePlayer(cid) end)
+        if not okGet or not offline or not offline.PlayerData then return false end
+
+        local okJobs, jobs = pcall(function() return exports.qbx_core:GetJobs() end)
+        local jobData = okJobs and jobs and jobs[name] or nil
+        local grades = jobData and jobData.grades or {}
+        local gradeData = grades[grade] or grades[tostring(grade)] or {}
+
+        offline.PlayerData.job = {
+            name = name,
+            type = jobData and jobData.type or nil,
+            label = jobData and jobData.label or name,
+            isboss = gradeData.isboss == true,
+            onduty = (jobData and jobData.defaultDuty) == true,
+            payment = gradeData.payment or 0,
+            grade = {
+                name = gradeData.name or tostring(grade),
+                level = grade,
+            },
+        }
+        local okSave, err = pcall(function() exports.qbx_core:SaveOffline(offline.PlayerData) end)
+        if not okSave then
+            print(('[codem-lib] SetJobGrade: SaveOffline failed for %s: %s'):format(cid, tostring(err)))
+        end
+        return okSave
     end
-    return QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
+
+    local offline = QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
+    if not offline then return false end
+    offline.Functions.SetJob(name, grade)
+    offline.Functions.Save()
+    return true
 end
 
 ---Apply a job change to an online OR offline player. Returns false when the
@@ -228,11 +329,7 @@ local function setJobFor(cid, name, grade)
         player.Functions.SetJob(name, grade)
         return true
     end
-    local offline = offlinePlayerByCid(cid)
-    if not offline then return false end
-    offline.Functions.SetJob(name, grade)
-    offline.Functions.Save()
-    return true
+    return setOfflineJob(cid, name, grade)
 end
 
 ---Set an employee's grade (online via the core, offline via the offline

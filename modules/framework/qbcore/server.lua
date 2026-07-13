@@ -113,33 +113,8 @@ end
 -- Items
 --------------------------------------------------------------------------------
 
--- Item calls go through the codem-lib inventory module (the configured
--- inventory provider), NOT through the framework player object - inventory
--- scripts replace those player functions and fall out of sync with them.
-
----@param src number
----@param itemName string
----@param qty? number
----@return boolean
-function Framework.Server.HasItem(src, itemName, qty)
-    qty = qty or 1
-    return (exports['codem-lib']:GetItemCount(src, itemName) or 0) >= qty
-end
-
----@param src number
----@param itemName string
----@param qty? number
-function Framework.Server.RemoveItem(src, itemName, qty)
-    return exports['codem-lib']:RemoveItem(src, itemName, qty or 1)
-end
-
----@param src number
----@param itemName string
----@param qty? number
----@return boolean
-function Framework.Server.AddItem(src, itemName, qty)
-    return exports['codem-lib']:AddItem(src, itemName, qty or 1) ~= false
-end
+-- No item functions here on purpose: item operations belong to the inventory
+-- module - use the CodemLib.Inventory.* API (Count/Add/Remove/...) instead.
 
 ---Register a server-side "use" handler for an inventory item (framework's
 ---CreateUseableItem, not the ox_inventory client-event hook). `cb` gets src.
@@ -168,6 +143,118 @@ end
 ---@param nType? string
 function Framework.Server.Notify(src, message, nType)
     exports['codem-lib']:Notify(src, message, nType)
+end
+
+--------------------------------------------------------------------------------
+-- Job employees (personnel management)
+--------------------------------------------------------------------------------
+
+---Awaitable DB query that works whether or not the consumer loaded the
+---oxmysql Lua wrapper (@oxmysql/lib/MySQL.lua).
+local function dbQuery(sql, params)
+    if MySQL and MySQL.query and MySQL.query.await then
+        return MySQL.query.await(sql, params)
+    end
+    local p = promise.new()
+    exports.oxmysql:query(sql, params, function(res) p:resolve(res) end)
+    return Citizen.Await(p)
+end
+
+-- The players table has no index on the JSON job column, so every lookup is a
+-- full scan. Two mitigations for big tables: a LIKE prefilter so MySQL only
+-- JSON-parses candidate rows, and a short TTL cache so repeated panel opens
+-- don't rescan. SetJobGrade/FireFromJob invalidate the cache.
+local employeeCache = {} -- [job] = { at = ms, rows = table }
+local EMPLOYEE_CACHE_MS = 30000
+
+---@param job string
+function Framework.Server.ClearJobEmployeesCache(job)
+    employeeCache[job] = nil
+end
+
+---Everyone employed at `job`, online or offline.
+---@param job string
+---@return { cid: string, name: string, grade: string|number }[]
+function Framework.Server.GetJobEmployees(job)
+    local hit = employeeCache[job]
+    if hit and (GetGameTimer() - hit.at) < EMPLOYEE_CACHE_MS then return hit.rows end
+
+    -- LIKE narrows the scan cheaply (plain string match, catches the JSON
+    -- key); JSON_EXTRACT then confirms exactly so 'mechanic' never matches
+    -- 'mechanic2'. Only candidate rows pay the JSON parse.
+    local rows = dbQuery(
+        'SELECT citizenid, charinfo, job FROM players WHERE job LIKE ? AND JSON_EXTRACT(job, "$.name") = ?',
+        { '%"name":"' .. job .. '"%', job }
+    ) or {}
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        local okC, info  = pcall(json.decode, row.charinfo)
+        local okJ, jdata = pcall(json.decode, row.job)
+        out[#out + 1] = {
+            cid   = row.citizenid,
+            name  = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or row.citizenid,
+            grade = okJ and (jdata.grade and (jdata.grade.name or jdata.grade.level)) or 0,
+        }
+    end
+
+    employeeCache[job] = { at = GetGameTimer(), rows = out }
+    return out
+end
+
+---Online player object by citizenid, or nil when offline.
+local function playerByCid(cid)
+    if isQbox then
+        return exports.qbx_core:GetPlayerByCitizenId(cid)
+    end
+    return QBCore.Functions.GetPlayerByCitizenId(cid)
+end
+
+---Offline player object by citizenid (job changes go through the core's own
+---player object + Save, never raw SQL - keeps the stored JSON shape intact).
+local function offlinePlayerByCid(cid)
+    if isQbox then
+        local ok, player = pcall(function() return exports.qbx_core:GetOfflinePlayer(cid) end)
+        return ok and player or nil
+    end
+    return QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
+end
+
+---Apply a job change to an online OR offline player. Returns false when the
+---citizenid does not exist at all.
+local function setJobFor(cid, name, grade)
+    local player = playerByCid(cid)
+    if player then
+        player.Functions.SetJob(name, grade)
+        return true
+    end
+    local offline = offlinePlayerByCid(cid)
+    if not offline then return false end
+    offline.Functions.SetJob(name, grade)
+    offline.Functions.Save()
+    return true
+end
+
+---Set an employee's grade (online via the core, offline via the offline
+---player object + Save).
+---@param cid string
+---@param job string
+---@param grade number
+---@return boolean
+function Framework.Server.SetJobGrade(cid, job, grade)
+    local ok = setJobFor(cid, job, tonumber(grade) or 0)
+    if ok then employeeCache[job] = nil end
+    return ok
+end
+
+---Fire an employee from a job (falls back to unemployed).
+---@param cid string
+---@param job string
+---@return boolean
+function Framework.Server.FireFromJob(cid, job)
+    local ok = setJobFor(cid, 'unemployed', 0)
+    if ok then employeeCache[job] = nil end
+    return ok
 end
 
 --------------------------------------------------------------------------------

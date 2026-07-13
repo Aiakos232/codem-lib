@@ -77,17 +77,8 @@ function Framework.Server.AddMoney(src, amount, account)
     return true
 end
 
--- Item calls go through the codem-lib inventory module (the configured
--- inventory provider), NOT through the framework player object.
-
-function Framework.Server.HasItem(src, itemName, qty)
-    qty = qty or 1
-    return (exports['codem-lib']:GetItemCount(src, itemName) or 0) >= qty
-end
-
-function Framework.Server.RemoveItem(src, itemName, qty)
-    return exports['codem-lib']:RemoveItem(src, itemName, qty or 1)
-end
+-- No item functions here on purpose: item operations belong to the inventory
+-- module - use the CodemLib.Inventory.* API (Count/Add/Remove/...) instead.
 
 ---Register a server-side "use" handler for an inventory item. `cb` gets src.
 ---@param name string
@@ -102,6 +93,105 @@ end
 ---Routed through the lib's notify module so LibConfig.Notify picks the look.
 function Framework.Server.Notify(src, message, nType)
     exports['codem-lib']:Notify(src, message, nType)
+end
+
+--------------------------------------------------------------------------------
+-- Job employees (personnel management)
+--------------------------------------------------------------------------------
+
+---Awaitable DB query that works whether or not the consumer loaded the
+---oxmysql Lua wrapper (@oxmysql/lib/MySQL.lua).
+local function dbQuery(sql, params)
+    if MySQL and MySQL.query and MySQL.query.await then
+        return MySQL.query.await(sql, params)
+    end
+    local p = promise.new()
+    exports.oxmysql:query(sql, params, function(res) p:resolve(res) end)
+    return Citizen.Await(p)
+end
+
+local function dbUpdate(sql, params)
+    if MySQL and MySQL.update and MySQL.update.await then
+        return MySQL.update.await(sql, params)
+    end
+    local p = promise.new()
+    exports.oxmysql:update(sql, params, function(res) p:resolve(res) end)
+    return Citizen.Await(p)
+end
+
+-- users.job is a plain column (no JSON parse); the TTL cache still avoids
+-- rescanning big tables on every panel refresh.
+local employeeCache = {} -- [job] = { at = ms, rows = table }
+local EMPLOYEE_CACHE_MS = 30000
+
+---@param job string
+function Framework.Server.ClearJobEmployeesCache(job)
+    employeeCache[job] = nil
+end
+
+---Everyone employed at `job`, online or offline.
+---@param job string
+---@return { cid: string, name: string, grade: string|number }[]
+function Framework.Server.GetJobEmployees(job)
+    local hit = employeeCache[job]
+    if hit and (GetGameTimer() - hit.at) < EMPLOYEE_CACHE_MS then return hit.rows end
+
+    local rows = dbQuery(
+        'SELECT u.identifier, u.firstname, u.lastname, u.job_grade, g.label AS gradeLabel '
+        .. 'FROM users u LEFT JOIN job_grades g ON g.job_name = u.job AND g.grade = u.job_grade '
+        .. 'WHERE u.job = ?',
+        { job }
+    ) or {}
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        out[#out + 1] = {
+            cid   = row.identifier,
+            name  = ('%s %s'):format(row.firstname or '', row.lastname or ''):gsub('%s+$', ''),
+            grade = row.gradeLabel or row.job_grade or 0,
+        }
+    end
+
+    employeeCache[job] = { at = GetGameTimer(), rows = out }
+    return out
+end
+
+---Set an employee's grade (online via xPlayer, offline via the users table).
+---@param cid string identifier
+---@param job string
+---@param grade number
+---@return boolean
+function Framework.Server.SetJobGrade(cid, job, grade)
+    grade = tonumber(grade) or 0
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        xPlayer.setJob(job, grade)
+    else
+        dbUpdate(
+            'UPDATE users SET job = ?, job_grade = ? WHERE identifier = ?',
+            { job, grade, cid }
+        )
+    end
+    employeeCache[job] = nil
+    return true
+end
+
+---Fire an employee from a job (falls back to unemployed).
+---@param cid string identifier
+---@param job string
+---@return boolean
+function Framework.Server.FireFromJob(cid, job)
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        xPlayer.setJob('unemployed', 0)
+    else
+        dbUpdate(
+            'UPDATE users SET job = "unemployed", job_grade = 0 WHERE identifier = ? AND job = ?',
+            { cid, job }
+        )
+    end
+    employeeCache[job] = nil
+    return true
 end
 
 --------------------------------------------------------------------------------

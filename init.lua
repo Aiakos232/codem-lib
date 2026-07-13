@@ -1,12 +1,49 @@
 --[[
-    codem-lib init shim — consumer scripts add
-    `shared_scripts { '@codem-lib/init.lua' }` to their fxmanifest and use
-    Lib.*. Every call goes through a codem-lib export; provider selection
-    lives in the lib config.
+    codem-lib init — the ONLY line a consumer resource needs:
+
+        shared_scripts { '@codem-lib/init.lua' }
+
+    Loading this file sets up everything in the consumer's own context:
+      - LibConfig            (provider selection)
+      - Framework.Client/Server bridge (right framework, right side)
+      - Target bridge        (client only; ox_target / qb-target)
+      - Lib.*                (Society / Keys / Fuel / Notify / Inventory shims
+                              over the codem-lib exports)
 ]]
 
 local LIB = 'codem-lib'
 
+---Run one of codem-lib's shared files inside THIS resource's context.
+local function loadLibFile(path)
+    local chunk = LoadResourceFile(LIB, path)
+    if not chunk then
+        print(('[codem-lib] init: could not read %s'):format(path))
+        return
+    end
+    local fn, err = load(chunk, ('@@%s/%s'):format(LIB, path))
+    if not fn then
+        print(('[codem-lib] init: %s'):format(err))
+        return
+    end
+    fn()
+end
+
+-- 1) Provider config (skip when the consumer already loaded it).
+if type(LibConfig) ~= 'table' then
+    loadLibFile('config.lua')
+end
+
+-- 2) Framework bridge — player objects can't cross exports, so the
+--    implementation runs here. framework.lua resolves the framework and side.
+loadLibFile('framework.lua')
+
+-- 3) Target bridge (client only) — options carry functions, same reason.
+--    Defines the `Target` global when ox_target / qb-target is running.
+if not IsDuplicityVersion() then
+    loadLibFile('modules/target/client.lua')
+end
+
+-- 4) Lib.* shims over the codem-lib exports.
 Lib = Lib or {}
 
 if IsDuplicityVersion() then
@@ -62,6 +99,12 @@ if IsDuplicityVersion() then
         Slot = function(src, slot) return exports[LIB]:GetItemSlot(src, slot) end,
         Drop = function(prefix, items, coords) return exports[LIB]:CustomDrop(prefix, items, coords) end,
         CreateShop = function(shopName, data) return exports[LIB]:CreateShop(shopName, data) end,
+        ---@param stashId string, label string, slots number, weight number, groups? table, coords? vector3, opts? table
+        RegisterStash = function(stashId, label, slots, weight, groups, coords, opts)
+            return exports[LIB]:RegisterStash(stashId, label, slots, weight, groups, coords, opts)
+        end,
+        ---@param src number, stashId string, invData? table @return boolean handled
+        OpenStashServer = function(src, stashId, invData) return exports[LIB]:OpenStashServer(src, stashId, invData) end,
     }
 else
     -- ── Client ──────────────────────────────────────────────────────────────
@@ -86,4 +129,14 @@ else
     Lib.Notify = function(message, nType, duration)
         return exports[LIB]:Notify(message, nType, duration)
     end
+
+    Lib.Inventory = {
+        Open = function(invType, data) return exports[LIB]:OpenInventory(invType, data) end,
+        ---@return number
+        Count = function(itemName, metadata) return exports[LIB]:GetItemCount(itemName, metadata) end,
+        ItemData = function(itemName) return exports[LIB]:GetItemData(itemName) end,
+        Items = function() return exports[LIB]:GetPlayerItems() end,
+        ---@param stashId string, invData? table @return boolean handled
+        OpenStash = function(stashId, invData) return exports[LIB]:OpenStash(stashId, invData) end,
+    }
 end

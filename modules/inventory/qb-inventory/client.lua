@@ -53,7 +53,7 @@ end
 
 Inventory.getItemData = function(itemName)
     local info = QBCore.Shared.Items[itemName]
-    return info and {name = itemName, label = info.label, description = info.description, image = ('https://cfx-nui-qb-inventory/html/images/%s.png'):format(itemName)}
+    return info and {name = itemName, label = info.label, description = info.description, image = LibItemImage('https://cfx-nui-qb-inventory/html/images/', itemName, info)}
 end
 ---Open a stash by id. Returns true when handled client-side.
 Inventory.openStash = function(stashId, invData)

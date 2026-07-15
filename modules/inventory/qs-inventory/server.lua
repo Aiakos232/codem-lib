@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['qs-inventory'] = Inventory
 
+--@return boolean [can the player carry itemCount of itemName]
+Inventory.canCarry = function(playerId, itemName, itemCount)
+    return exports['qs-inventory']:CanCarryItem(playerId, itemName, itemCount) ~= false
+end
+
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)

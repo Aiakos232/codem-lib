@@ -30,6 +30,23 @@ end
 
 exports('GetInventoryResource', LibGetInventoryResource)
 
+---Build an inventory icon url. Honors the item's OWN image field (kept with its
+---extension, e.g. 'farming/wheat.webp') and passes absolute http/nui urls
+---through untouched. Only when the item has no image do we fall back to
+---"<base><itemName>.png".
+---@param base string url/nui prefix incl. trailing slash (e.g. 'nui://inventory_images/images/')
+---@param itemName string
+---@param info? table item data from the provider
+---@return string
+function LibItemImage(base, itemName, info)
+    local img = info and (info.image or info.img)
+    if img and img ~= '' then
+        if img:find('^nui://') or img:find('^http') then return img end
+        return base .. img
+    end
+    return base .. itemName .. '.png'
+end
+
 if IsDuplicityVersion() then
     ---Framework-agnostic unique player identifier (citizenid / identifier).
     ---Used by providers whose exports are keyed by identifier (codem-inventory).

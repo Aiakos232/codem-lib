@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['tgiann-inventory'] = Inventory
 
+--@return boolean [can the player carry itemCount of itemName]
+Inventory.canCarry = function(playerId, itemName, itemCount)
+    return exports['tgiann-inventory']:CanCarryItem(playerId, itemName, itemCount) ~= false
+end
+
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)
@@ -115,7 +120,11 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
         jobs = {}
         for jobName in pairs(groups) do jobs[#jobs + 1] = jobName end
     end
+    -- tgiann's table form keys the stash on `stashName` (see its own
+    -- policejob/ambulance callers); `name` is only accepted by the internal
+    -- function, not the export - registering with it drops the whitelist.
     exports['tgiann-inventory']:RegisterStash({
+        stashName = stashId,
         name      = stashId,
         label     = label,
         slots     = slots,

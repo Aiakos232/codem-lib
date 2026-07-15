@@ -17,5 +17,5 @@ end
 
 Inventory.getItemData = function(itemName)
     local info = exports['origen_inventory']:Items(itemName)
-    return info and {name = itemName, label = info.label, description = info.description, image = ('https://cfx-nui-origen_inventory/ui/images/%s.png'):format(itemName)}
+    return info and {name = itemName, label = info.label, description = info.description, image = LibItemImage('https://cfx-nui-origen_inventory/ui/images/', itemName, info)}
 end

@@ -62,3 +62,11 @@ fn()
 -- fields the implementation fills in later stay visible.
 CodemLib = CodemLib or {}
 CodemLib.Framework = IsDuplicityVersion() and Framework.Server or Framework.Client
+
+-- Framework-agnostic server helper: player world coords. Filled generically so
+-- every framework impl gets it without duplicating the native call.
+if IsDuplicityVersion() and type(CodemLib.Framework) == 'table' then
+    CodemLib.Framework.GetCoords = CodemLib.Framework.GetCoords or function(src)
+        return GetEntityCoords(GetPlayerPed(src))
+    end
+end

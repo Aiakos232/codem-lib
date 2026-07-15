@@ -101,8 +101,16 @@ local function provider()
     return 'ox'
 end
 
+-- Severity ad birleştirme: farklı scriptler 'info'/'warn' gibi eşanlamlılar gönderir;
+-- provider'lara vermeden önce ortak isimlere indir (ox_lib 'inform'/'warning' bekler).
+local NTYPE_ALIAS = {
+    info = 'inform', inform = 'inform',
+    warn = 'warning', warning = 'warning',
+    error = 'error', success = 'success',
+}
+
 local function notify(message, nType, duration)
-    nType = nType or 'info'
+    nType = NTYPE_ALIAS[nType or 'inform'] or 'inform'
     duration = duration or 4000
 
     local p = PROVIDERS[provider()]

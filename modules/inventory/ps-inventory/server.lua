@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['ps-inventory'] = Inventory
 
+--@return boolean [can the player carry itemCount of itemName]
+Inventory.canCarry = function(playerId, itemName, itemCount)
+    return exports['ps-inventory']:CanAddItem(playerId, itemName, itemCount) ~= false
+end
+
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'shop' then
         exports['ps-inventory']:OpenShop(source, data.type)

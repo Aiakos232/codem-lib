@@ -17,7 +17,13 @@ end
 
 Inventory.getItemData = function(itemName)
     local info = exports["tgiann-inventory"]:Items(itemName)
-    return info and {name = itemName, label = info.label, description = info.description, image = ('nui://inventory_images/images/%s.png'):format(itemName)}
+    return info and
+        {
+            name = itemName,
+            label = info.label,
+            description = info.description,
+            image = LibItemImage('nui://inventory_images/images/', itemName, info)
+        }
 end
 ---tgiann stashes are opened server-side; the caller must route through its
 ---own (validated) server event and call OpenStashServer there.

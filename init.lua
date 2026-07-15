@@ -92,10 +92,16 @@ if IsDuplicityVersion() then
         ---@param src number @return table items
         Items = function(src) return exports[LIB]:GetPlayerItems(src) end,
         ---@param src number, itemName string, count number, metadata? table, slot? number
-        Add = function(src, itemName, count, metadata, slot) return exports[LIB]:AddItem(src, itemName, count, metadata, slot) end,
-        Remove = function(src, itemName, count, metadata, slot) return exports[LIB]:RemoveItem(src, itemName, count, metadata, slot) end,
+        ---@return boolean success (providers that return nil on success are treated as success)
+        Add = function(src, itemName, count, metadata, slot) return exports[LIB]:AddItem(src, itemName, count, metadata, slot) ~= false end,
+        ---@return boolean success (nil = success)
+        Remove = function(src, itemName, count, metadata, slot) return exports[LIB]:RemoveItem(src, itemName, count, metadata, slot) ~= false end,
         ---@return number
         Count = function(src, itemName, metadata) return exports[LIB]:GetItemCount(src, itemName, metadata) end,
+        ---@param src number, itemName string, count? number, metadata? table @return boolean
+        Has = function(src, itemName, count, metadata) return (exports[LIB]:GetItemCount(src, itemName, metadata) or 0) >= (count or 1) end,
+        ---@param src number, itemName string, count? number, metadata? table @return boolean can carry (default true when provider has no check)
+        CanCarry = function(src, itemName, count, metadata) return exports[LIB]:CanCarry(src, itemName, count or 1, metadata) end,
         Slot = function(src, slot) return exports[LIB]:GetItemSlot(src, slot) end,
         Drop = function(prefix, items, coords) return exports[LIB]:CustomDrop(prefix, items, coords) end,
         CreateShop = function(shopName, data) return exports[LIB]:CreateShop(shopName, data) end,
@@ -150,7 +156,13 @@ else
         Open = function(invType, data) return exports[LIB]:OpenInventory(invType, data) end,
         ---@return number
         Count = function(itemName, metadata) return exports[LIB]:GetItemCount(itemName, metadata) end,
+        ---@param itemName string, count? number, metadata? table @return boolean
+        Has = function(itemName, count, metadata) return (exports[LIB]:GetItemCount(itemName, metadata) or 0) >= (count or 1) end,
         ItemData = function(itemName) return exports[LIB]:GetItemData(itemName) end,
+        ---@return string|nil item icon url/path
+        Image = function(itemName) local d = exports[LIB]:GetItemData(itemName); return d and d.image or nil end,
+        ---@return string item label (falls back to the item name)
+        Label = function(itemName) local d = exports[LIB]:GetItemData(itemName); return (d and d.label) or itemName end,
         Items = function() return exports[LIB]:GetPlayerItems() end,
         ---@param stashId string, invData? table @return boolean handled
         OpenStash = function(stashId, invData) return exports[LIB]:OpenStash(stashId, invData) end,

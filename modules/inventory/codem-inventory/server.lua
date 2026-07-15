@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['codem-inventory'] = Inventory
 
+--@return boolean [codem-inventory has no reliable carry-weight export; allow]
+Inventory.canCarry = function(playerId, itemName, itemCount)
+    return true
+end
+
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)

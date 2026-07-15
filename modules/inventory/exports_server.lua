@@ -27,6 +27,17 @@ exports('GetPlayerItems', function(src) return call('getPlayerItems', src) end)
 exports('AddItem', function(src, itemName, count, metadata, slot) return call('addItem', src, itemName, count, metadata, slot) end)
 exports('RemoveItem', function(src, itemName, count, metadata, slot) return call('removeItem', src, itemName, count, metadata, slot) end)
 exports('GetItemCount', function(src, itemName, metadata) return call('getItemCount', src, itemName, metadata) end)
+-- Weight/space check. Providers without a canCarry method default to allowed
+-- (true) silently — not every inventory exposes one, and blocking on absence
+-- would break otherwise-valid actions.
+exports('CanCarry', function(src, itemName, count, metadata)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider.canCarry then return true end
+    local ok, out = pcall(provider.canCarry, src, itemName, count, metadata)
+    if not ok then return true end
+    return out ~= false
+end)
 exports('GetItemSlot', function(src, slot) return call('getItemSlot', src, slot) end)
 exports('CustomDrop', function(prefix, items, coords) return call('CustomDrop', prefix, items, coords) end)
 exports('CreateShop', function(shopName, data) return call('createShop', shopName, data) end)

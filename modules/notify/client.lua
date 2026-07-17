@@ -1,7 +1,7 @@
 --[[
     Notifications (client) — every provider in one file. Selection via LibConfig.Notify.provider
-    ('auto' picks the first running notify script, falling back to ox_lib,
-    which is always present as a codem-lib dependency).
+    ('auto' picks the first running notify script, then ox_lib if it is running,
+    otherwise the framework native notification). ox_lib is optional.
 
     Exports:
       Notify(message, type?, duration?)   -- type: 'info'|'success'|'error'|'warning'
@@ -64,7 +64,7 @@ local PROVIDERS = {
     },
 
     ['ox'] = {
-        notify = function(m, t, d) lib.notify({ title = m, type = t, duration = d }) end,
+        notify = function(m, t, d) exports.ox_lib:notify({ title = m, type = t, duration = d }) end,
     },
 
     -- Core framework notifications (event/export based).
@@ -76,15 +76,17 @@ local PROVIDERS = {
                 TriggerEvent('QBCore:Notify', m, t, d)
             elseif GetResourceState('es_extended') == 'started' then
                 TriggerEvent('esx:showNotification', m)
+            elseif CodemOxReady() then
+                exports.ox_lib:notify({ title = m, type = t, duration = d })
             else
-                lib.notify({ title = m, type = t, duration = d })
+                print(('[codem-lib] Notify: no provider available for "%s"'):format(m))
             end
         end,
     },
 }
 
--- 'auto' detection order — dedicated notify scripts win; ox_lib is the
--- final fallback (always running).
+-- 'auto' detection order — dedicated notify scripts win; then ox_lib (if
+-- running), else the framework native notification.
 local CANDIDATES = {
     'codem-supreme-notification',
     'codem-notification', 'okokNotify', 'brutal_notify', 'g-notifications',
@@ -98,11 +100,12 @@ local function provider()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
-    return 'ox'
+    -- ox_lib when running, otherwise the framework native notification.
+    if CodemOxReady() then return 'ox' end
+    return 'framework'
 end
 
--- Severity ad birleştirme: farklı scriptler 'info'/'warn' gibi eşanlamlılar gönderir;
--- provider'lara vermeden önce ortak isimlere indir (ox_lib 'inform'/'warning' bekler).
+
 local NTYPE_ALIAS = {
     info = 'inform', inform = 'inform',
     warn = 'warning', warning = 'warning',

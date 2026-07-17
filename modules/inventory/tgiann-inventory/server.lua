@@ -51,7 +51,7 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
     if itemMetadata then
         local items = exports['tgiann-inventory']:GetPlayerItems(playerId)
         for k, v in pairs(items) do
-            if v.name == itemName and v.info and lib.table.matches(v.info, itemMetadata) then
+            if v.name == itemName and v.info and CodemTableMatches(v.info, itemMetadata) then
                 return v.amount
             end
         end

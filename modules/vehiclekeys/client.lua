@@ -153,7 +153,7 @@ local PROVIDERS = {
 
     ['okokGarage'] = {
         give   = function(v, p) TriggerServerEvent('okokGarage:GiveKeys', plateOf(v, p)) end,
-        remove = function(v, p) TriggerServerEvent('okokGarage:RemoveKeys', plateOf(v, p), cache.serverId) end,
+        remove = function(v, p) TriggerServerEvent('okokGarage:RemoveKeys', plateOf(v, p), GetPlayerServerId(PlayerId())) end,
     },
 
     ['cd_garage'] = {

@@ -16,11 +16,16 @@ local function plateOf(vehicle, plate)
 end
 
 -- ND_Core init is loaded lazily, only when the provider is actually used.
+-- (Reads ND_Core's own init.lua directly, so it works without ox_lib.)
 local ndLoaded = false
 local function ndInit()
     if ndLoaded then return end
     NDCore = NDCore or {}
-    lib.load('@ND_Core.init')
+    local chunk = LoadResourceFile('ND_Core', 'init.lua')
+    if chunk then
+        local fn = load(chunk, '@@ND_Core/init.lua')
+        if fn then fn() end
+    end
     ndLoaded = true
 end
 

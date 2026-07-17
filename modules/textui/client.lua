@@ -1,7 +1,8 @@
 --[[
     Text UI (client) — persistent on-screen prompt ("Press E to ...").
     Selection via LibConfig.TextUI.provider ('auto' picks the first running
-    resource, falling back to ox_lib, which is always present).
+    resource, then ox_lib if it is running). ox_lib is optional; with no
+    provider the calls no-op with a console warning.
 
     Exports:
       ShowTextUI(text, opts?)   -- opts: { position?: string, icon?: string }
@@ -22,14 +23,13 @@ local PROVIDERS = {
 
     ['ox'] = {
         show = function(t, o)
-            lib.showTextUI(t, { position = (o and o.position) or 'left-center', icon = o and o.icon })
+            exports.ox_lib:showTextUI(t, { position = (o and o.position) or 'left-center', icon = o and o.icon })
         end,
-        hide = function() lib.hideTextUI() end,
+        hide = function() exports.ox_lib:hideTextUI() end,
     },
 }
 
--- 'auto' detection order — dedicated text UI scripts win; ox_lib is the
--- final fallback (always running).
+-- 'auto' detection order — dedicated text UI scripts win; then ox_lib if running.
 local CANDIDATES = { 'okokTextUI', 'cd_drawtextui' }
 
 local function provider()
@@ -38,14 +38,20 @@ local function provider()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
-    return 'ox'
+    -- ox_lib only if it is actually running; no native TextUI fallback.
+    if CodemOxReady() then return 'ox' end
+    return 'none'
 end
 
 local function dispatch(verb, ...)
     local name = provider()
     local p = PROVIDERS[name]
     if not p then
-        print(('[codem-lib] TextUI.%s: unknown provider "%s" - check LibConfig.TextUI.provider'):format(verb, name))
+        if name == 'none' then
+            print(('[codem-lib] TextUI.%s: no provider running - install ox_lib or a dedicated TextUI resource, or set LibConfig.TextUI.provider'):format(verb))
+        else
+            print(('[codem-lib] TextUI.%s: unknown provider "%s" - check LibConfig.TextUI.provider'):format(verb, name))
+        end
         return false
     end
     local ok, err = pcall(p[verb], ...)

@@ -58,15 +58,18 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@return count: number [amount of items in inventory]
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)
+    print('getItemCount', playerId, itemName, itemMetadata)
     if itemMetadata and QBCore then
         local Player = QBCore.Functions.GetPlayer(playerId)
         local items = Player.PlayerData.items
         for k, v in pairs(items) do
-            if v.name == itemName and v.info and lib.table.matches(v.info, itemMetadata) then
+            if v.name == itemName and v.info and CodemTableMatches(v.info, itemMetadata) then
                 return v.amount
             end
         end
     else
+        print('itemname', itemName)
+        print(exports['qb-inventory']:GetItemCount(playerId, itemName))
         return exports['qb-inventory']:GetItemCount(playerId, itemName)
     end
 
@@ -78,7 +81,8 @@ end
 --@return item: {name: string, label: string, amount: number, metadata: table}
 Inventory.getItemSlot = function(playerId, slot)
     local itemSlot = exports['qb-inventory']:GetItemBySlot(playerId, slot)
-    return itemSlot and {name = itemSlot.name, label = itemSlot.label, amount = itemSlot.amount, metadata = itemSlot.info or {}} or nil
+    return itemSlot and
+        { name = itemSlot.name, label = itemSlot.label, amount = itemSlot.amount, metadata = itemSlot.info or {} } or nil
 end
 
 ---@param shopName: string [unique shop name]
@@ -88,7 +92,7 @@ Inventory.createShop = function(shopName, data)
         if not data.inventory[i].slot then
             data.inventory[i].slot = i
         end
-        
+
         if not data.inventory[i].amount then
             data.inventory[i].amount = 1000
         end

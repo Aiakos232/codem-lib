@@ -6,13 +6,13 @@ description 'Codem shared bridge library'
 version '1.0.0'
 
 
-dependencies {
-    'ox_lib',
-}
+-- ox_lib is OPTIONAL. When present, its interface is used via exports
+-- (see modules/lib_compat.lua); when absent, each module falls back to a
+-- dedicated provider or the framework native.
 
 shared_scripts {
-    '@ox_lib/init.lua',
     'config.lua',
+    'modules/lib_compat.lua',
     'modules/inventory/shared.lua',
 }
 

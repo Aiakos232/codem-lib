@@ -62,7 +62,7 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
         local Player = QBCore.Functions.GetPlayer(playerId)
         local items = Player.PlayerData.items
         for k, v in pairs(items) do
-            if v.name == itemName and v.info and lib.table.matches(v.info, itemMetadata) then
+            if v.name == itemName and v.info and CodemTableMatches(v.info, itemMetadata) then
                 return v.amount
             end
         end

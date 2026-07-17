@@ -1,7 +1,8 @@
 --[[
     Skill check (client) — blocking minigame gate. Returns true on pass.
     Selection via LibConfig.SkillCheck.provider ('auto' prefers a dedicated
-    minigame resource, falling back to ox_lib's skill check).
+    minigame resource, then ox_lib's skill check if it is running). ox_lib
+    is optional.
 
     Exports:
       SkillCheck(difficulty, inputs?)
@@ -13,7 +14,7 @@
 local PROVIDERS = {
     ['ox'] = {
         run = function(difficulty, inputs)
-            return lib.skillCheck(difficulty, inputs) == true
+            return exports.ox_lib:skillCheck(difficulty, inputs) == true
         end,
     },
 
@@ -39,14 +40,20 @@ local function provider()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
-    return 'ox'
+    -- ox_lib only if it is actually running; no native skill check fallback.
+    if CodemOxReady() then return 'ox' end
+    return 'none'
 end
 
 exports('SkillCheck', function(difficulty, inputs)
     local name = provider()
     local p = PROVIDERS[name]
     if not p then
-        print(('[codem-lib] SkillCheck: unknown provider "%s" - check LibConfig.SkillCheck.provider'):format(name))
+        if name == 'none' then
+            print('[codem-lib] SkillCheck: no provider running - install ox_lib or ps-ui, or set LibConfig.SkillCheck.provider')
+        else
+            print(('[codem-lib] SkillCheck: unknown provider "%s" - check LibConfig.SkillCheck.provider'):format(name))
+        end
         return false
     end
     local ok, res = pcall(p.run, difficulty, inputs)

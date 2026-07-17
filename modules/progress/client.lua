@@ -2,7 +2,7 @@
     Progress bar (client) — blocking timed-action indicator. Returns true when
     the bar completed, false when it was cancelled. Selection via
     LibConfig.Progress.provider ('auto' prefers a dedicated progressbar
-    resource, falling back to ox_lib).
+    resource, then ox_lib if it is running). ox_lib is optional.
 
     Exports:
       Progress(opts)  -- { label, duration, canCancel?, useWhileDead?,
@@ -13,7 +13,7 @@
 local PROVIDERS = {
     ['ox'] = {
         run = function(opts)
-            return lib.progressBar({
+            return exports.ox_lib:progressBar({
                 label        = opts.label,
                 duration     = opts.duration,
                 useWhileDead = opts.useWhileDead or false,
@@ -63,14 +63,20 @@ local function provider()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
-    return 'ox'
+    -- ox_lib only if it is actually running; no native progressbar fallback.
+    if CodemOxReady() then return 'ox' end
+    return 'none'
 end
 
 exports('Progress', function(opts)
     local name = provider()
     local p = PROVIDERS[name]
     if not p then
-        print(('[codem-lib] Progress: unknown provider "%s" - check LibConfig.Progress.provider'):format(name))
+        if name == 'none' then
+            print('[codem-lib] Progress: no provider running - install ox_lib or qb progressbar, or set LibConfig.Progress.provider')
+        else
+            print(('[codem-lib] Progress: unknown provider "%s" - check LibConfig.Progress.provider'):format(name))
+        end
         return false
     end
     local ok, res = pcall(p.run, opts)

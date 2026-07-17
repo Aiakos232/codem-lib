@@ -6,15 +6,15 @@ end
 
 local Inventory = {}
 LibInventoryProviders['qb-inventory'] = Inventory
-
+local QBCore = exports['qb-core']:GetCoreObject()
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then
         if data.owner then
-            TriggerServerEvent("inventory:server:OpenInventory", "stash", data.id..'_'..data.owner, {
+            TriggerServerEvent("inventory:server:OpenInventory", "stash", data.id .. '_' .. data.owner, {
                 maxweight = 250000,
                 slots = 100,
             })
-            TriggerEvent("inventory:client:SetCurrentStash", data.id..'_'..data.owner)
+            TriggerEvent("inventory:client:SetCurrentStash", data.id .. '_' .. data.owner)
         else
             TriggerServerEvent('codem-lib:inventory:openInventory', invType, data)
         end
@@ -22,7 +22,7 @@ Inventory.openInventory = function(invType, data)
         if not data.label then
             data.label = data.type
         end
-        
+
         if data.items then
             for i = 1, #data.items, 1 do
                 data.items[i].slot = i
@@ -53,7 +53,14 @@ end
 
 Inventory.getItemData = function(itemName)
     local info = QBCore.Shared.Items[itemName]
-    return info and {name = itemName, label = info.label, description = info.description, image = LibItemImage('https://cfx-nui-qb-inventory/html/images/', itemName, info)}
+    return info and
+        {
+            name = itemName,
+            label = info.label,
+            description = info.description,
+            image = LibItemImage(
+                'https://cfx-nui-qb-inventory/html/images/', itemName, info)
+        }
 end
 ---Open a stash by id. Returns true when handled client-side.
 Inventory.openStash = function(stashId, invData)

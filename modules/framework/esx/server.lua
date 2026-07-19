@@ -92,6 +92,15 @@ function Framework.Server.CreateUseableItem(name, cb)
     end)
 end
 
+---Vehicle base value. ESX ships no shared price list (prices live in whatever
+---vehicle shop you run), so this returns 0 and the consumer falls back to its own
+---pricing. Override here if your shop exposes a lookup.
+---@param _model string|number
+---@return number
+function Framework.Server.GetVehicleValue(_model)
+    return 0
+end
+
 ---Routed through the lib's notify module so LibConfig.Notify picks the look.
 function Framework.Server.Notify(src, message, nType)
     exports['codem-lib']:Notify(src, message, nType)

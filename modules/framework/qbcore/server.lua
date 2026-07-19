@@ -135,6 +135,40 @@ function Framework.Server.CreateUseableItem(name, cb)
 end
 
 --------------------------------------------------------------------------------
+-- Vehicles
+--------------------------------------------------------------------------------
+
+---Vehicle base value from the core's own shared vehicle list - the same table
+---the vehicle shop prices from (qbx_core/shared/vehicles.lua on Qbox,
+---QBCore.Shared.Vehicles on QB). No SQL, no separate price table to maintain.
+---@param model string|number Spawn/archetype name (any case) or model hash
+---@return number price 0 when the model isn't listed
+function Framework.Server.GetVehicleValue(model)
+    if not model then return 0 end
+    if isQbox then
+        local veh
+        if type(model) == 'number' then
+            veh = exports.qbx_core:GetVehiclesByHash(model)
+        else
+            veh = exports.qbx_core:GetVehiclesByName(model:lower())
+        end
+        return (veh and veh.price) or 0
+    end
+    if not QBCore then return 0 end
+    local list = QBCore.Shared.Vehicles
+    if not list then return 0 end
+    if type(model) == 'number' then
+        -- QB keys by spawn name only, so find the matching hash.
+        for _, veh in pairs(list) do
+            if veh.hash == model then return veh.price or 0 end
+        end
+        return 0
+    end
+    local veh = list[model:lower()]
+    return (veh and veh.price) or 0
+end
+
+--------------------------------------------------------------------------------
 -- Notifications
 --------------------------------------------------------------------------------
 

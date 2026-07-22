@@ -63,6 +63,137 @@ function Framework.Server.GetBalance(src, account)
     return acc and acc.money or 0
 end
 
+---Identity fields. ESX keeps these in the `users` row and mirrors part of it on
+---the player object; anything the server did not set comes back nil rather than
+---being invented.
+---@param src number
+---@return table|nil
+function Framework.Server.GetCharInfo(src)
+    local xPlayer = Framework.Server.GetPlayer(src)
+    if not xPlayer then return nil end
+
+    local get = xPlayer.get
+    local function field(name)
+        if not get then return nil end
+        local ok, value = pcall(get, name)
+        return ok and value or nil
+    end
+
+    local sex = field('sex')
+    return {
+        firstname = field('firstName'),
+        lastname = field('lastName'),
+        birthdate = field('dateofbirth'),
+        gender = (sex == 'f' or sex == 'F' or sex == 1) and 'female' or 'male',
+        nationality = nil,
+        phone = field('phoneNumber'),
+        account = nil,
+        citizenid = xPlayer.identifier,
+    }
+end
+
+---ESX has no gang concept; gang UI stays empty rather than showing job data.
+---@return nil
+function Framework.Server.GetGang()
+    return nil
+end
+
+---Status values (hunger, thirst) live in esx_status, which is optional.
+---@param src number
+---@return table
+function Framework.Server.GetMetadata(src)
+    local xPlayer = Framework.Server.GetPlayer(src)
+    if not xPlayer then return {} end
+
+    local out = {}
+    if GetResourceState('esx_status') == 'started' then
+        -- esx_status is client-authoritative; the server copy is only what the
+        -- last tick reported, so this is a best-effort read.
+        local ok, statuses = pcall(function()
+            return xPlayer.get and xPlayer.get('status') or nil
+        end)
+        if ok and type(statuses) == 'table' then
+            for _, status in pairs(statuses) do
+                if status.name and status.val then
+                    out[status.name] = math.floor(status.val / 10000)
+                end
+            end
+        end
+    end
+    return out
+end
+
+---ESX keeps hunger/thirst in esx_status, which is driven from the client; the
+---server can only ask it to change, and only if that resource is running.
+---@param src number
+---@param key string
+---@param value number 0-100
+---@return boolean
+function Framework.Server.SetMetadata(src, key, value)
+    if GetResourceState('esx_status') ~= 'started' then return false end
+    if type(value) ~= 'number' then return false end
+
+    TriggerClientEvent('esx_status:set', src, key, math.floor(value * 10000))
+    return true
+end
+
+--------------------------------------------------------------------------------
+-- Jobs
+--------------------------------------------------------------------------------
+
+---@return table<string, table>
+function Framework.Server.GetJobs()
+    return (ESX.GetJobs and ESX.GetJobs()) or {}
+end
+
+---ESX keeps jobs in the `jobs` / `job_grades` tables, so registering one is a
+---database write the framework owns. Only newer builds expose it; older ones
+---return false rather than half-registering a job that vanishes on restart.
+---@param name string
+---@param job table { label, grades }
+---@return boolean
+function Framework.Server.CreateJob(name, job)
+    if type(name) ~= 'string' or type(job) ~= 'table' then return false end
+    if not ESX.CreateJob then return false end
+
+    local grades = {}
+    for gradeId, grade in pairs(job.grades or {}) do
+        grades[#grades + 1] = {
+            grade = tonumber(gradeId) or 0,
+            name = grade.name,
+            label = grade.label or grade.name,
+            salary = grade.payment or grade.salary or 0,
+        }
+    end
+
+    ESX.CreateJob(name, job.label or name, grades)
+    return true
+end
+
+---@return boolean
+function Framework.Server.RemoveJob()
+    -- ESX has no removal API; deleting the rows behind its back would leave
+    -- every player holding that job in an unknown state.
+    return false
+end
+
+---@param src number
+---@return table<string, number>
+function Framework.Server.GetAccounts(src)
+    local xPlayer = Framework.Server.GetPlayer(src)
+    if not xPlayer or not xPlayer.getAccounts then return {} end
+
+    local out = {}
+    for _, account in pairs(xPlayer.getAccounts() or {}) do
+        if account.name then
+            -- Renamed so consumers see the same key on both frameworks.
+            local key = account.name == 'money' and 'cash' or account.name
+            out[key] = account.money or 0
+        end
+    end
+    return out
+end
+
 function Framework.Server.RemoveMoney(src, amount, account)
     local xPlayer = Framework.Server.GetPlayer(src)
     if not xPlayer then return false end

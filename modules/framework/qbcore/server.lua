@@ -76,8 +76,161 @@ function Framework.Server.GetPlayerJob(src)
 end
 
 --------------------------------------------------------------------------------
+-- Character sheet
+--------------------------------------------------------------------------------
+
+---Identity fields the framework stores on the character.
+---@param src number
+---@return table|nil { firstname, lastname, birthdate, gender, nationality, phone, account, citizenid }
+function Framework.Server.GetCharInfo(src)
+    local Player = Framework.Server.GetPlayer(src)
+    local data = Player and Player.PlayerData
+    local info = data and data.charinfo
+    if not info then return nil end
+
+    return {
+        firstname = info.firstname,
+        lastname = info.lastname,
+        birthdate = info.birthdate,
+        -- QB stores gender as 0/1; normalised here so consumers never branch on it.
+        gender = info.gender == 1 and 'female' or 'male',
+        nationality = info.nationality,
+        phone = info.phone,
+        account = info.account,
+        citizenid = data.citizenid,
+    }
+end
+
+---@param src number
+---@return table|nil { name, label, grade, gradeLabel, isboss } — nil when gangless
+function Framework.Server.GetGang(src)
+    local Player = Framework.Server.GetPlayer(src)
+    local gang = Player and Player.PlayerData and Player.PlayerData.gang
+    if not gang or not gang.name or gang.name == 'none' then return nil end
+
+    return {
+        name = gang.name,
+        label = gang.label,
+        grade = gang.grade and gang.grade.level or 0,
+        gradeLabel = gang.grade and gang.grade.name or nil,
+        isboss = gang.isboss == true,
+    }
+end
+
+---Character metadata (hunger, thirst, stress, ...). Returned verbatim: servers
+---add their own keys and a whitelist here would silently drop them.
+---@param src number
+---@return table
+function Framework.Server.GetMetadata(src)
+    local Player = Framework.Server.GetPlayer(src)
+    local meta = Player and Player.PlayerData and Player.PlayerData.metadata
+    if type(meta) ~= 'table' then return {} end
+
+    local out = {}
+    for key, value in pairs(meta) do
+        -- Only scalars: nested tables here are inventory-shaped blobs, not stats.
+        local kind = type(value)
+        if kind == 'number' or kind == 'boolean' or kind == 'string' then
+            out[key] = value
+        end
+    end
+    return out
+end
+
+---Writes a single metadata key (hunger, thirst, stress, ...).
+---@param src number
+---@param key string
+---@param value any
+---@return boolean
+function Framework.Server.SetMetadata(src, key, value)
+    if not key then return false end
+
+    -- Qbox exposes this as a resource export; the player-object variant is
+    -- spelled SetMetaData there and marked deprecated.
+    if isQbox then
+        exports.qbx_core:SetMetadata(src, key, value)
+        return true
+    end
+
+    local Player = Framework.Server.GetPlayer(src)
+    if not Player or not Player.Functions or not Player.Functions.SetMetaData then return false end
+
+    Player.Functions.SetMetaData(key, value)
+    return true
+end
+
+--------------------------------------------------------------------------------
+-- Jobs
+--------------------------------------------------------------------------------
+
+---@return table<string, table> job name -> definition
+function Framework.Server.GetJobs()
+    if isQbox then
+        return exports.qbx_core:GetJobs() or {}
+    end
+    return (QBCore and QBCore.Shared.Jobs) or {}
+end
+
+---Registers a job in the framework's live table.
+---
+---Memory only, on purpose: Qbox can also rewrite `qbx_core/shared/jobs.lua`,
+---but its writer emits a fixed field list and silently drops `type` (the
+---'leo' / 'ems' marker several jobs rely on). The caller is expected to keep
+---its own persistent copy and re-register on boot.
+---@param name string
+---@param job table
+---@return boolean
+function Framework.Server.CreateJob(name, job)
+    if type(name) ~= 'string' or type(job) ~= 'table' then return false end
+
+    if isQbox then
+        local ok = exports.qbx_core:CreateJob(name, job, false)
+        return ok ~= false
+    end
+
+    if QBCore and QBCore.Functions.AddJob then
+        QBCore.Functions.AddJob(name, job)
+        return true
+    end
+    return false
+end
+
+---@param name string
+---@return boolean
+function Framework.Server.RemoveJob(name)
+    if type(name) ~= 'string' then return false end
+
+    if isQbox then
+        local ok = exports.qbx_core:RemoveJob(name, false)
+        return ok ~= false
+    end
+
+    if QBCore and QBCore.Functions.RemoveJob then
+        QBCore.Functions.RemoveJob(name)
+        return true
+    end
+    return false
+end
+
+--------------------------------------------------------------------------------
 -- Money
 --------------------------------------------------------------------------------
+
+---Every money account the character holds, name -> amount. Not limited to
+---cash/bank: a server that adds `crypto` or `coins` shows up without a change here.
+---@param src number
+---@return table<string, number>
+function Framework.Server.GetAccounts(src)
+    local Player = Framework.Server.GetPlayer(src)
+    local money = Player and Player.PlayerData and Player.PlayerData.money
+    if type(money) ~= 'table' then return {} end
+
+    local out = {}
+    for name, amount in pairs(money) do
+        out[name] = tonumber(amount) or 0
+    end
+    return out
+end
 
 ---@param src number
 ---@param account string 'cash' | 'bank'

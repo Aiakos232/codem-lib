@@ -20,7 +20,11 @@ end)
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)
-    return exports["jpr-inventory"]:GetInventory(playerId)
+    -- A player's items live on the core object; GetInventory returns nil for a
+    -- player id on this qb fork. Keep it as the fallback.
+    local Player = LibGetQbPlayer(playerId)
+    if Player then return Player.PlayerData.items or {} end
+    return exports["jpr-inventory"]:GetInventory(playerId) or {}
 end
 
 --@param prefix: string [prefix for the drop]
@@ -53,16 +57,15 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@return count: number [amount of items in inventory]
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)
-    if itemMetadata and QBCore then
-        local Player = QBCore.Functions.GetPlayer(playerId)
-        local items = Player.PlayerData.items
-        for k, v in pairs(items) do
+    local Player = itemMetadata and LibGetQbPlayer(playerId)
+    if Player then
+        for k, v in pairs(Player.PlayerData.items or {}) do
             if v.name == itemName and v.info and CodemTableMatches(v.info, itemMetadata) then
                 return v.amount
             end
         end
     else
-        return exports['jpr-inventory']:GetItemCount(playerId, itemName)
+        return exports['jpr-inventory']:GetItemCount(playerId, itemName) or 0
     end
 
     return 0

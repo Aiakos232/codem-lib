@@ -25,6 +25,10 @@ end)
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)
+    -- A player's items live on the core object; GetInventory only holds
+    -- stashes/drops and returns nil for a player id. Keep it as the fallback.
+    local Player = LibGetQbPlayer(playerId)
+    if Player then return Player.PlayerData.items or {} end
     return exports['qb-inventory']:GetInventory(playerId)?.items or {}
 end
 
@@ -59,10 +63,9 @@ end
 --@return count: number [amount of items in inventory]
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)
     print('getItemCount', playerId, itemName, itemMetadata)
-    if itemMetadata and QBCore then
-        local Player = QBCore.Functions.GetPlayer(playerId)
-        local items = Player.PlayerData.items
-        for k, v in pairs(items) do
+    local Player = itemMetadata and LibGetQbPlayer(playerId)
+    if Player then
+        for k, v in pairs(Player.PlayerData.items or {}) do
             if v.name == itemName and v.info and CodemTableMatches(v.info, itemMetadata) then
                 return v.amount
             end
@@ -70,7 +73,7 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
     else
         print('itemname', itemName)
         print(exports['qb-inventory']:GetItemCount(playerId, itemName))
-        return exports['qb-inventory']:GetItemCount(playerId, itemName)
+        return exports['qb-inventory']:GetItemCount(playerId, itemName) or 0
     end
 
     return 0

@@ -7,6 +7,10 @@ end
 local Inventory = {}
 LibInventoryProviders['jpr-inventory'] = Inventory
 
+-- Core handle, same as the qb-inventory client sibling. getItemCount/getItemData
+-- below reference QBCore but the line was dropped in this fork.
+local QBCore = exports['qb-core']:GetCoreObject()
+
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then
         if data.owner then

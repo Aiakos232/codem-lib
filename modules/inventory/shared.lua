@@ -65,4 +65,19 @@ if IsDuplicityVersion() then
         end
         return nil
     end
+
+    ---qb/qbox core Player object for a server id (nil on esx or when not found).
+    ---qb-family inventories (qb/ps/jpr forks) keep a player's items on this
+    ---object, not in the inventory's own tables, so their providers read through
+    ---it. qbox-safe (mirrors LibGetUniqueId's resolution).
+    ---@param playerId number
+    ---@return table|nil
+    function LibGetQbPlayer(playerId)
+        if GetResourceState('qbx_core') == 'started' then
+            return exports.qbx_core:GetPlayer(playerId)
+        elseif GetResourceState('qb-core') == 'started' then
+            return exports['qb-core']:GetCoreObject().Functions.GetPlayer(playerId)
+        end
+        return nil
+    end
 end

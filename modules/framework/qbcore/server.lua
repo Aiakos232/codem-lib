@@ -271,18 +271,21 @@ end
 -- module - use the CodemLib.Inventory.* API (Count/Add/Remove/...) instead.
 
 ---Register a server-side "use" handler for an inventory item (framework's
----CreateUseableItem, not the ox_inventory client-event hook). `cb` gets src.
+---CreateUseableItem, not the ox_inventory client-event hook). `cb` gets src and
+---the used item (slot/name/amount + `info`/`metadata` when the inventory keeps
+---per-item metadata). The second argument is optional for callers that only
+---care about who used it.
 ---@param name string
----@param cb fun(src: number)
+---@param cb fun(src: number, item?: table)
 function Framework.Server.CreateUseableItem(name, cb)
     if not name or not cb then return end
     if isQbox then
-        exports.qbx_core:CreateUseableItem(name, function(src)
-            cb(src)
+        exports.qbx_core:CreateUseableItem(name, function(src, item)
+            cb(src, item)
         end)
     elseif QBCore then
-        QBCore.Functions.CreateUseableItem(name, function(src)
-            cb(src)
+        QBCore.Functions.CreateUseableItem(name, function(src, item)
+            cb(src, item)
         end)
     end
 end

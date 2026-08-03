@@ -23,6 +23,16 @@ LibConfig.Society = {
     provider = 'auto',
 }
 
+-- Billing provider (player invoices).
+-- Supported: 'codem-phone' | 'codem-billingv2' | 'auto' | false (disabled)
+--   maxDistance : how close the sender must be to the billed player, in metres.
+--                 0 = no distance check.
+LibConfig.Billing = {
+    enabled     = true,
+    provider    = 'auto',
+    maxDistance = 0,
+}
+
 -- Inventory provider.
 -- Supported: 'ox_inventory' | 'qb-inventory' | 'ps-inventory' | 'qs-inventory'
 -- | 'codem-inventory' | 'core_inventory' | 'tgiann-inventory' | 'origen_inventory'

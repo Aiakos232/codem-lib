@@ -39,7 +39,9 @@ client_scripts {
 }
 
 server_scripts {
+    'framework.lua',
     'modules/society/server.lua',
+    'modules/billing/server.lua',
     'modules/vehiclekeys/server.lua',
     'modules/fuel/server.lua',
     'modules/notify/server.lua',

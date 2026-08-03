@@ -62,6 +62,18 @@ if IsDuplicityVersion() then
         Balance = function(account) return exports[LIB]:SocietyBalance(account) end,
     }
 
+    CodemLib.Billing = {
+        ---Send an invoice to a player.
+        ---@param data table { identifier | targetSource, amount, reason, senderSource?, job?, jobLabel?, maxDistance? }
+        ---@return string|false invoiceId, string|nil reason
+        Send = function(data) return exports[LIB]:SendInvoice(data) end,
+        ---@param invoiceId string|number
+        ---@return boolean
+        IsPaid = function(invoiceId) return exports[LIB]:IsInvoicePaid(invoiceId) end,
+        ---@return string|nil active provider name
+        Provider = function() return exports[LIB]:GetBillingProvider() end,
+    }
+
     CodemLib.Keys = {
         ---@param src number player server id
         ---@param vehicle number vehicle entity

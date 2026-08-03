@@ -58,6 +58,13 @@ CreateThread(function()
         'ox_target', 'qb-target',
     })
 
+    local billing = detect(LibConfig.Billing and LibConfig.Billing.provider, {
+        'codem-phone', 'codem-billingv2',
+    })
+    if LibConfig.Billing and (LibConfig.Billing.enabled == false or LibConfig.Billing.provider == false) then
+        billing = 'none (disabled)'
+    end
+
     local notify = detect(LibConfig.Notify and LibConfig.Notify.provider, {
         'codem-notification', 'okokNotify', 'brutal_notify', 'g-notifications',
         'is_ui', 'lation_ui', 'vms_notifyv2', 'wasabi_uikit',
@@ -73,5 +80,6 @@ CreateThread(function()
         '  fuel        : ^3' .. fuel .. '^0',
         '  target      : ^3' .. target .. '^0',
         '  notify      : ^3' .. notify .. '^0',
+        '  billing     : ^3' .. billing .. '^0',
     }, '\n'))
 end)

@@ -7,6 +7,7 @@
     Global API:
       Billing.Send(data)        -> invoiceId | false, reason
       Billing.IsPaid(invoiceId) -> boolean
+      Billing.BillsTable()      -> provider's invoice table name | nil
       Billing.Provider()        -> active provider name | nil
 
     `data` fields:
@@ -20,6 +21,11 @@
 
     Paid invoices fire the server event `codem-lib:billing:invoicePaid`
     (invoiceId, provider) on every consumer script, whichever provider is used.
+
+    Cancellations are not evented - a cancelled invoice is simply gone from the
+    provider's table. Ask Billing.BillsTable() and look the id up yourself when
+    you need to know, so any removal path (cancel, admin delete, manual SQL) is
+    covered by one check.
 ]]
 
 Billing = Billing or {}
@@ -46,6 +52,8 @@ local PROVIDERS = {
             )
             return row and row[1] and row[1].status == 'paid'
         end,
+
+        billsTable ='codem_mphone_newbilling_bills',
     },
 
     ['codem-billingv2'] = {
@@ -71,6 +79,8 @@ local PROVIDERS = {
             )
             return row and row[1] and row[1].status == 'paid'
         end,
+
+        billsTable ='codem_billing_data',
     },
 }
 
@@ -223,9 +233,22 @@ end
 ---@return boolean
 function Billing.IsPaid(invoiceId)
     local provider = Billing.Provider()
-    if not provider or not invoiceId then return false end
+    if not provider or not invoiceId or not MySQL then return false end
     local ok, paid = pcall(PROVIDERS[provider].isPaid, invoiceId)
     return ok and paid == true
+end
+
+---Where the active provider keeps its invoices - one row per invoice, keyed by
+---an `invoiceid` column. A cancelled invoice is deleted from it, so a consumer
+---that stored an invoice id can check whether it is still there.
+---
+---The lookup itself is deliberately left to the caller: oxmysql's `.await`
+---cannot yield across an export boundary, so the query has to run in the
+---resource that needs the answer.
+---@return string|nil table name, nil when billing is off / provider unknown
+function Billing.BillsTable()
+    local provider = Billing.Provider()
+    return provider and PROVIDERS[provider].billsTable or nil
 end
 
 for name, provider in pairs(PROVIDERS) do
@@ -239,4 +262,5 @@ end
 
 exports('SendInvoice', Billing.Send)
 exports('IsInvoicePaid', Billing.IsPaid)
+exports('GetBillingTable', Billing.BillsTable)
 exports('GetBillingProvider', Billing.Provider)

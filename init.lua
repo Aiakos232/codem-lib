@@ -70,6 +70,10 @@ if IsDuplicityVersion() then
         ---@param invoiceId string|number
         ---@return boolean
         IsPaid = function(invoiceId) return exports[LIB]:IsInvoicePaid(invoiceId) end,
+        ---Provider's invoice table (`invoiceid` column). Query it yourself to
+        ---see whether an invoice is still there - cancelled ones are deleted.
+        ---@return string|nil
+        BillsTable = function() return exports[LIB]:GetBillingTable() end,
         ---@return string|nil active provider name
         Provider = function() return exports[LIB]:GetBillingProvider() end,
     }

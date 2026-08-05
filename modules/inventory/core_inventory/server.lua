@@ -54,3 +54,24 @@ Inventory.getItemSlot = function(playerId, slot)
     local itemData = exports.core_inventory:getItemBySlot(playerId, slot)
     return itemData and {name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.metadata or {}} or nil
 end
+--@return catalog: table<string, { label: string, weight: number, image: string|nil }>
+--Item metadata comes from the framework's shared table; only the picture
+--folder is this inventory's own.
+Inventory.itemCatalog = function()
+    return LibFrameworkCatalog('nui://core_inventory/html/img/')
+end
+
+--@param playerId: number
+--@return capacity: { slots: number|nil, maxWeight: number|nil } [kg] or nil
+Inventory.capacity = function(playerId)
+    return LibPlayerCapacity(playerId)
+end
+
+--@param stashId: string|number
+--@return items: table or nil when the stash is unknown
+Inventory.stashItems = function(stashId)
+    local inv = exports['core_inventory']:getInventory(stashId)
+    if type(inv) ~= 'table' then return nil end
+    -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
+    return inv.items or inv
+end

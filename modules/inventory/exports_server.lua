@@ -38,6 +38,21 @@ exports('CanCarry', function(src, itemName, count, metadata)
     if not ok then return true end
     return out ~= false
 end)
+--[[
+    Item metadata, capacity and stash reads.
+
+    Panels and admin tools need to describe an item (label, weight, picture)
+    without owning one, and to say how full a bag is. Providers keep all three
+    in different places, so the difference is resolved here rather than in
+    every script that asks.
+
+    A provider that cannot answer returns nil through `call`, and nil is a
+    real answer: "this inventory does not expose it" is not the same as empty.
+]]
+exports('GetItemCatalog', function() return call('itemCatalog') end)
+exports('GetCapacity', function(src) return call('capacity', src) end)
+exports('GetStashItems', function(stashId) return call('stashItems', stashId) end)
+
 exports('GetItemSlot', function(src, slot) return call('getItemSlot', src, slot) end)
 exports('CustomDrop', function(prefix, items, coords) return call('CustomDrop', prefix, items, coords) end)
 exports('CreateShop', function(shopName, data) return call('createShop', shopName, data) end)

@@ -52,3 +52,24 @@ Inventory.createShop = function(shopName, data)
         locations = data.locations,
     })
 end
+--@return catalog: table<string, { label: string, weight: number, image: string|nil }>
+--Item metadata comes from the framework's shared table; only the picture
+--folder is this inventory's own.
+Inventory.itemCatalog = function()
+    return LibFrameworkCatalog('nui://origen_inventory/html/images/')
+end
+
+--@param playerId: number
+--@return capacity: { slots: number|nil, maxWeight: number|nil } [kg] or nil
+Inventory.capacity = function(playerId)
+    return LibPlayerCapacity(playerId)
+end
+
+--@param stashId: string|number
+--@return items: table or nil when the stash is unknown
+Inventory.stashItems = function(stashId)
+    local inv = exports['origen_inventory']:getInventoryItems(stashId)
+    if type(inv) ~= 'table' then return nil end
+    -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
+    return inv.items or inv
+end

@@ -75,3 +75,42 @@ end
 Inventory.openStashServer = function(src, stashId, invData)
     return false
 end
+
+--@return catalog: table<string, { label: string, weight: number, image: string|nil }>
+--Item metadata for every item the server knows, weight in kilograms. ox stores
+--grams; the conversion belongs here so callers never have to ask which unit
+--this particular inventory happens to use.
+Inventory.itemCatalog = function()
+    local items = exports['ox_inventory']:Items()
+    if type(items) ~= 'table' then return {} end
+
+    local out = {}
+    for name, item in pairs(items) do
+        out[name] = {
+            label = item.label or name,
+            weight = (tonumber(item.weight) or 0) / 1000,
+            image = LibItemImage('nui://ox_inventory/web/images/', name, item.client),
+        }
+    end
+    return out
+end
+
+--@param playerId: number
+--@return capacity: { slots: number|nil, maxWeight: number|nil } [kg]
+Inventory.capacity = function(playerId)
+    local inv = exports['ox_inventory']:GetInventory(playerId, false)
+    if type(inv) ~= 'table' then return nil end
+
+    return {
+        slots = tonumber(inv.slots),
+        maxWeight = (tonumber(inv.maxWeight) or 0) / 1000,
+    }
+end
+
+--@param stashId: string|number [stash identifier]
+--@return items: table [same shape as getPlayerItems] or nil when the stash is unknown
+Inventory.stashItems = function(stashId)
+    local inv = exports['ox_inventory']:GetInventory(stashId, false)
+    if type(inv) ~= 'table' then return nil end
+    return inv.items or {}
+end

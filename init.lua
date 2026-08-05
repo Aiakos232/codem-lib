@@ -119,6 +119,13 @@ if IsDuplicityVersion() then
         ---@param src number, itemName string, count? number, metadata? table @return boolean can carry (default true when provider has no check)
         CanCarry = function(src, itemName, count, metadata) return exports[LIB]:CanCarry(src, itemName, count or 1, metadata) end,
         Slot = function(src, slot) return exports[LIB]:GetItemSlot(src, slot) end,
+        ---Item metadata for every item on the server.
+        ---@return table<string, { label: string, weight: number, image: string|nil }>|nil
+        Catalog = function() return exports[LIB]:GetItemCatalog() end,
+        ---@param src number @return { slots: number|nil, maxWeight: number|nil }|nil kg
+        Capacity = function(src) return exports[LIB]:GetCapacity(src) end,
+        ---@param stashId string|number @return table|nil items (nil = provider cannot read stashes)
+        Stash = function(stashId) return exports[LIB]:GetStashItems(stashId) end,
         Drop = function(prefix, items, coords) return exports[LIB]:CustomDrop(prefix, items, coords) end,
         CreateShop = function(shopName, data) return exports[LIB]:CreateShop(shopName, data) end,
         ---@param stashId string, label string, slots number, weight number, groups? table, coords? vector3, opts? table

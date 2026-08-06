@@ -47,6 +47,20 @@ function LibItemImage(base, itemName, info)
     return base .. itemName .. '.png'
 end
 
+if not IsDuplicityVersion() then
+    local qbCore
+
+
+    ---@return table|nil
+    function LibGetQbCore()
+        if qbCore then return qbCore end
+        if GetResourceState('qb-core') ~= 'started' then return nil end
+        local ok, core = pcall(function() return exports['qb-core']:GetCoreObject() end)
+        qbCore = ok and type(core) == 'table' and core or nil
+        return qbCore
+    end
+end
+
 if IsDuplicityVersion() then
     ---Framework-agnostic unique player identifier (citizenid / identifier).
     ---Used by providers whose exports are keyed by identifier (codem-inventory).

@@ -7,10 +7,6 @@ end
 local Inventory = {}
 LibInventoryProviders['jpr-inventory'] = Inventory
 
--- Core handle, same as the qb-inventory client sibling. getItemCount/getItemData
--- below reference QBCore but the line was dropped in this fork.
-local QBCore = exports['qb-core']:GetCoreObject()
-
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then
         if data.owner then
@@ -31,7 +27,9 @@ Inventory.openInventory = function(invType, data)
 end
 
 Inventory.getItemCount = function(itemName)
-    local items = QBCore.PlayerData.items
+    local core = LibGetQbCore()
+    local items = core and core.PlayerData and core.PlayerData.items
+    if not items then return 0 end
     for _, item in pairs(items) do
         if item.name == itemName then
             return item.amount
@@ -41,6 +39,7 @@ Inventory.getItemCount = function(itemName)
 end
 
 Inventory.getItemData = function(itemName)
-    local info = QBCore.Shared.Items[itemName]
+    local core = LibGetQbCore()
+    local info = core and core.Shared.Items[itemName]
     return info and {name = itemName, label = info.label, description = info.description, image = ('https://cfx-nui-jpr-inventory/html/images/%s.png'):format(itemName)}
 end

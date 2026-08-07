@@ -23,6 +23,15 @@ LibConfig.Society = {
     provider = 'auto',
 }
 
+-- Ambulance / medical provider (reviving a downed player).
+-- Supported: 'wasabi_ambulance_v2' | 'wasabi_ambulance' | 'qs-medical-creator'
+-- | 'ars_ambulancejob' | 'tk_ambulancejob' | 'qbx_medical' | 'qb-ambulancejob'
+-- | 'esx_ambulancejob' | 'auto'
+LibConfig.Medical = {
+    enabled  = true,
+    provider = 'auto',
+}
+
 -- Billing provider (player invoices).
 -- Supported: 'codem-phone' | 'codem-billingv2' | 'auto' | false (disabled)
 --   maxDistance : how close the sender must be to the billed player, in metres.

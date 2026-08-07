@@ -78,6 +78,17 @@ if IsDuplicityVersion() then
         Provider = function() return exports[LIB]:GetBillingProvider() end,
     }
 
+    CodemLib.Medical = {
+        ---Revive a downed player through the server's ambulance script.
+        ---The client-side resurrection stays with the caller: this only clears
+        ---the death state the ambulance resource is holding.
+        ---@param src number player server id
+        ---@return boolean handled
+        Revive = function(src) return exports[LIB]:MedicalRevive(src) end,
+        ---@return string|nil active ambulance resource name
+        Provider = function() return exports[LIB]:GetMedicalProvider() end,
+    }
+
     CodemLib.Keys = {
         ---@param src number player server id
         ---@param vehicle number vehicle entity
@@ -103,6 +114,46 @@ if IsDuplicityVersion() then
     CodemLib.Notify = function(src, message, nType, duration)
         return exports[LIB]:Notify(src, message, nType, duration)
     end
+
+    --[[
+        Owned vehicles.
+
+        The framework's own table behind one interface: qb writes
+        `player_vehicles`, ESX `owned_vehicles`, and they agree on nothing.
+        Reads come back normalised (status as a word, health as 0-100), writes
+        take the same words.
+    ]]
+    CodemLib.Vehicles = {
+        ---@param limit? number @return table[]|nil nil = no supported framework
+        List = function(limit) return exports[LIB]:GetVehicles(limit) end,
+        ---@param owner string citizenid (qb) / identifier (esx)
+        ---@param limit? number @return table[]|nil
+        ByOwner = function(owner, limit) return exports[LIB]:GetOwnerVehicles(owner, limit) end,
+        ---@param plate string @return table|nil
+        Get = function(plate) return exports[LIB]:GetVehicle(plate) end,
+        ---@return { total: number, garage: number, impound: number, outside: number }|nil
+        Counts = function() return exports[LIB]:GetVehicleCounts() end,
+        ---@param plate string, state 'garage'|'impound'|'outside' @return boolean
+        SetState = function(plate, state) return exports[LIB]:SetVehicleState(plate, state) end,
+        ---@param plate string, next string @return boolean
+        SetPlate = function(plate, next_) return exports[LIB]:SetVehiclePlate(plate, next_) end,
+        ---@param plate string, owner string, license? string @return boolean
+        SetOwner = function(plate, owner, license) return exports[LIB]:SetVehicleOwner(plate, owner, license) end,
+        ---@param plate string @return boolean
+        Delete = function(plate) return exports[LIB]:DeleteVehicleRow(plate) end,
+        ---@param owner string @return boolean
+        DeleteByOwner = function(owner) return exports[LIB]:DeleteOwnerVehicles(owner) end,
+        ---@param plate string @return boolean false when the framework keeps condition elsewhere
+        Repair = function(plate) return exports[LIB]:RepairVehicleRow(plate) end,
+        ---@param plate string @return boolean
+        Refuel = function(plate) return exports[LIB]:RefuelVehicleRow(plate) end,
+        ---@param data { owner: string, license?: string, model: string, plate: string, garage?: string }
+        ---@return boolean
+        Create = function(data) return exports[LIB]:CreateVehicleRow(data) end,
+        ---Plate -> spawned entity, one pass over the world.
+        ---@return table<string, number>
+        Spawned = function() return exports[LIB]:GetSpawnedVehicles() end,
+    }
 
     CodemLib.Inventory = {
         ---@param src number @return table items

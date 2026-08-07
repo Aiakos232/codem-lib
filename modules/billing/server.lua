@@ -17,6 +17,11 @@
       senderSource server id of the player sending it (used for the job + commission)
       job          override the sender job name (defaults to the sender's job)
       jobLabel     override the displayed sender name
+      senderAccount override which account the provider pays out to once the
+                   invoice is settled. Default 'job_<job>' = the billing
+                   resource's own job vault (it splits commission / vault
+                   itself). Pass 'SYSTEM' for a charge that must not pay anyone
+                   - e.g. a cost line the customer covers but nobody earns.
       maxDistance  override LibConfig.Billing.maxDistance for this call
 
     Paid invoices fire the server event `codem-lib:billing:invoicePaid`
@@ -39,7 +44,7 @@ local PROVIDERS = {
                 target,
                 data.amount,
                 data.reason,
-                'job_' .. data.job,
+                data.senderAccount or ('job_' .. data.job),
                 data.jobLabel,
                 data.senderIdentifier
             )
@@ -65,7 +70,7 @@ local PROVIDERS = {
                 data.amount,
                 data.reason,
                 false,
-                'job_' .. data.job,
+                data.senderAccount or ('job_' .. data.job),
                 data.jobLabel,
                 data.senderIdentifier,
                 data.job
@@ -210,6 +215,7 @@ function Billing.Send(data)
         job = job,
         jobLabel = jobLabel,
         senderIdentifier = senderIdentifier,
+        senderAccount = data.senderAccount,
     })
 
     if not sent then

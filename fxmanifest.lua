@@ -39,8 +39,10 @@ client_scripts {
 }
 
 server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     'framework.lua',
     'modules/society/server.lua',
+    'modules/medical/server.lua',
     'modules/billing/server.lua',
     'modules/vehiclekeys/server.lua',
     'modules/fuel/server.lua',
@@ -58,6 +60,8 @@ server_scripts {
     'modules/inventory/jpr-inventory/server.lua',
     'modules/inventory/S-inventory/server.lua',
     'modules/inventory/exports_server.lua',
+    -- Owned vehicle tables (player_vehicles / owned_vehicles), normalised.
+    'modules/vehicles/server.lua',
     'modules/boot.lua',
 }
 

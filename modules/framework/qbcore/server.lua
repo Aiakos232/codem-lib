@@ -504,11 +504,26 @@ local function setOfflineJob(cid, name, grade)
         return okSave
     end
 
-    local offline = QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
-    if not offline then return false end
-    offline.Functions.SetJob(name, grade)
-    offline.Functions.Save()
-    return true
+    -- Some qb-core builds ship GetOfflinePlayerByCitizenId but not the
+    -- GetOfflinePlayer it calls internally - pcall both steps so a missing
+    -- field degrades to "could not update" instead of an RPC-killing error.
+    local okGet, offline = pcall(function()
+        return QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
+    end)
+    if not okGet or not offline then
+        if not okGet then
+            print(('[codem-lib] setOfflineJob: offline lookup failed for %s: %s'):format(cid, tostring(offline)))
+        end
+        return false
+    end
+    local okSet, err = pcall(function()
+        offline.Functions.SetJob(name, grade)
+        offline.Functions.Save()
+    end)
+    if not okSet then
+        print(('[codem-lib] setOfflineJob: save failed for %s: %s'):format(cid, tostring(err)))
+    end
+    return okSet
 end
 
 ---Apply a job change to an online OR offline player. Returns false when the

@@ -65,6 +65,15 @@ CreateThread(function()
         billing = 'none (disabled)'
     end
 
+    local medical = detect(LibConfig.Medical and LibConfig.Medical.provider, {
+        'wasabi_ambulance_v2', 'wasabi_ambulance', 'qs-medical-creator',
+        'ars_ambulancejob', 'tk_ambulancejob', 'qbx_medical', 'qb-ambulancejob',
+        'esx_ambulancejob',
+    })
+    if LibConfig.Medical and LibConfig.Medical.enabled == false then
+        medical = medical .. ' (disabled)'
+    end
+
     local notify = detect(LibConfig.Notify and LibConfig.Notify.provider, {
         'codem-notification', 'okokNotify', 'brutal_notify', 'g-notifications',
         'is_ui', 'lation_ui', 'vms_notifyv2', 'wasabi_uikit',
@@ -79,6 +88,7 @@ CreateThread(function()
         '  vehiclekeys : ^3' .. vehiclekeys .. '^0',
         '  fuel        : ^3' .. fuel .. '^0',
         '  target      : ^3' .. target .. '^0',
+        '  medical     : ^3' .. medical .. '^0',
         '  notify      : ^3' .. notify .. '^0',
         '  billing     : ^3' .. billing .. '^0',
     }, '\n'))

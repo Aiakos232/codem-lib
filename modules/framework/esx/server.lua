@@ -177,6 +177,21 @@ function Framework.Server.RemoveJob()
     return false
 end
 
+--------------------------------------------------------------------------------
+-- Character loaded
+--------------------------------------------------------------------------------
+
+--[[
+    One event for "the character is in the game", whichever framework fires it.
+    Consumers listen to `codem-lib:playerLoaded` and never learn the framework's
+    own event name. ESX has no gang concept, so no CreateGang/SetGang here —
+    a consumer that owns its own gang catalog keeps it on its side.
+]]
+AddEventHandler('esx:playerLoaded', function(playerId)
+    local src = tonumber(playerId) or source
+    if src then TriggerEvent('codem-lib:playerLoaded', src) end
+end)
+
 ---@param src number
 ---@return table<string, number>
 function Framework.Server.GetAccounts(src)

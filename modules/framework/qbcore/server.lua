@@ -117,6 +117,53 @@ function Framework.Server.GetGang(src)
     }
 end
 
+---@param src number
+---@param patch table
+---@return boolean
+function Framework.Server.SetCharInfo(src, patch)
+    local Player = Framework.Server.GetPlayer(src)
+    if not Player or type(patch) ~= 'table' then return false end
+
+    local info = Player.PlayerData.charinfo
+    if type(info) ~= 'table' then return false end
+
+    local next_ = {}
+    for key, value in pairs(info) do next_[key] = value end
+
+    for key, value in pairs(patch) do
+        if key == 'gender' then
+            next_.gender = (value == 'female' or value == 1) and 1 or 0
+        elseif key == 'firstname' or key == 'lastname' or key == 'birthdate'
+            or key == 'nationality' or key == 'phone' then
+            next_[key] = value
+        end
+    end
+
+    if isQbox then
+        exports.qbx_core:SetCharInfo(src, next_)
+        return true
+    end
+
+    if Player.Functions.SetCharInfo then
+        Player.Functions.SetCharInfo(next_)
+    else
+        Player.PlayerData.charinfo = next_
+        if Player.Functions.Save then Player.Functions.Save() end
+    end
+    return true
+end
+
+---Sets the gang. `name = 'none'` clears it.
+---@param src number
+---@param name string
+---@param grade number
+---@return boolean
+function Framework.Server.SetGang(src, name, grade)
+    local Player = Framework.Server.GetPlayer(src)
+    if not Player or not Player.Functions or not Player.Functions.SetGang then return false end
+    return Player.Functions.SetGang(name, tonumber(grade) or 0) and true or false
+end
+
 ---Character metadata (hunger, thirst, stress, ...). Returned verbatim: servers
 ---add their own keys and a whitelist here would silently drop them.
 ---@param src number
@@ -183,13 +230,26 @@ end
 function Framework.Server.CreateJob(name, job)
     if type(name) ~= 'string' or type(job) ~= 'table' then return false end
 
+    -- Grade keys per framework: qb-core keeps `Shared.Jobs[x].grades['0']`
+    -- (string), qbox keeps `grades[0]` (number). A caller reloading from JSON
+    -- arrives with strings; passing those to qbox breaks character load —
+    -- CheckPlayerData indexes `grades[0]` and finds nothing.
+    local grades = {}
+    for id, grade in pairs(job.grades or {}) do
+        local key = isQbox and tonumber(id) or tostring(tonumber(id) or id)
+        if key ~= nil then grades[key] = grade end
+    end
+    local payload = {}
+    for k, v in pairs(job) do payload[k] = v end
+    payload.grades = grades
+
     if isQbox then
-        local ok = exports.qbx_core:CreateJob(name, job, false)
+        local ok = exports.qbx_core:CreateJob(name, payload, false)
         return ok ~= false
     end
 
     if QBCore and QBCore.Functions.AddJob then
-        QBCore.Functions.AddJob(name, job)
+        QBCore.Functions.AddJob(name, payload)
         return true
     end
     return false
@@ -211,6 +271,74 @@ function Framework.Server.RemoveJob(name)
     end
     return false
 end
+
+--------------------------------------------------------------------------------
+-- Gangs (catalog)
+--------------------------------------------------------------------------------
+
+---Every gang the framework knows. Same shape as GetJobs: name -> { label, grades }.
+---@return table<string, table>
+function Framework.Server.GetGangs()
+    if isQbox then return exports.qbx_core:GetGangs() or {} end
+    return QBCore and QBCore.Shared and QBCore.Shared.Gangs or {}
+end
+
+---Registers a gang so `SetGang` accepts it. Memory only, like CreateJob: the
+---caller keeps its own copy and re-applies on boot.
+---@param name string
+---@param gang { label: string, grades: table<number, { name: string, isboss?: boolean }> }
+---@return boolean
+function Framework.Server.CreateGang(name, gang)
+    if type(name) ~= 'string' or type(gang) ~= 'table' then return false end
+
+    -- qb wants grades keyed by string number; qbox by number. Both accept
+    -- `isboss` on the grade.
+    local grades = {}
+    for id, grade in pairs(gang.grades or {}) do
+        grades[isQbox and tonumber(id) or tostring(id)] = { name = grade.name, isboss = grade.isboss == true }
+    end
+    local payload = { label = gang.label or name, grades = grades }
+
+    if isQbox then
+        local ok = exports.qbx_core:CreateGang(name, payload, false)
+        return ok ~= false
+    end
+    if QBCore and QBCore.Functions.AddGang then
+        return QBCore.Functions.AddGang(name, payload) ~= false
+    end
+    return false
+end
+
+---@param name string
+---@return boolean
+function Framework.Server.RemoveGang(name)
+    if type(name) ~= 'string' then return false end
+    if isQbox then
+        local ok = exports.qbx_core:RemoveGang(name, false)
+        return ok ~= false
+    end
+    if QBCore and QBCore.Functions.RemoveGang then
+        QBCore.Functions.RemoveGang(name)
+        return true
+    end
+    return false
+end
+
+--------------------------------------------------------------------------------
+-- Character loaded
+--------------------------------------------------------------------------------
+
+--[[
+    One event for "the character is in the game", whichever framework fires it.
+    Consumers that need to apply per-character state (a panel-owned faction, a
+    stored flag) listen to `codem-lib:playerLoaded` and never learn the
+    framework's own event name.
+]]
+-- Qbox keeps the QBCore event name for compatibility.
+AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
+    local src = type(player) == 'table' and player.PlayerData and player.PlayerData.source or source
+    if src then TriggerEvent('codem-lib:playerLoaded', src) end
+end)
 
 --------------------------------------------------------------------------------
 -- Money
@@ -382,7 +510,7 @@ local function dbJobEmployees(job)
     for _, row in ipairs(rows) do
         local okC, info  = pcall(json.decode, row.charinfo)
         local okJ, jdata = pcall(json.decode, row.job)
-        out[#out + 1] = {
+        out[#out + 1]    = {
             cid   = row.citizenid,
             name  = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or row.citizenid,
             grade = okJ and (jdata.grade and (jdata.grade.name or jdata.grade.level)) or 0,
@@ -429,7 +557,7 @@ function Framework.Server.GetJobEmployees(job)
     for _, row in ipairs(dbJobEmployees(job)) do
         local live = online[row.cid]
         if live == nil then
-            out[#out + 1] = row -- offline: DB is the truth
+            out[#out + 1] = row  -- offline: DB is the truth
         elseif live then
             out[#out + 1] = live -- online, same job: live data wins
         end
@@ -504,9 +632,6 @@ local function setOfflineJob(cid, name, grade)
         return okSave
     end
 
-    -- Some qb-core builds ship GetOfflinePlayerByCitizenId but not the
-    -- GetOfflinePlayer it calls internally - pcall both steps so a missing
-    -- field degrades to "could not update" instead of an RPC-killing error.
     local okGet, offline = pcall(function()
         return QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
     end)

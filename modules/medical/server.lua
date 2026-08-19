@@ -40,11 +40,14 @@ local PROVIDERS = {
         revive = function(src) return exports.tk_ambulancejob:revive(src, true) end,
     },
 
-    -- Qbox's own medical resource. Its export, not qb's `hospital:client:Revive`
-    -- event: qbx_medical does not listen for that one at all, and the export is
-    -- what clears the death state bag the rest of the server reads.
+    -- Qbox's own medical resource. Both events go out: the first is what
+    -- qb-ambulancejob listens for and qbx_medical still answers, the second is
+    -- what tells the rest of the server the player is up.
     ['qbx_medical'] = {
-        revive = function(src) return exports.qbx_medical:Revive(src) end,
+        revive = function(src)
+            TriggerClientEvent('hospital:client:Revive', src)
+            TriggerClientEvent('qbx_medical:client:playerRevived', src)
+        end,
     },
 
     ['qb-ambulancejob'] = {

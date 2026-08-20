@@ -105,6 +105,16 @@ LibConfig.VehicleKeys = {
     hotwireIgnition = true,
 }
 
+-- Admin permission groups for Framework.Server.IsAdmin checks.
+-- qb/qbox: QBCore/qbx permission groups. ESX: player group names.
+-- Players holding the 'command' ace (txAdmin / server console) always pass,
+-- regardless of this list.
+LibConfig.AdminPermissions = {
+    ['god']        = true,
+    ['admin']      = true,
+    ['superadmin'] = true, -- ESX only; harmless on qb/qbox
+}
+
 LibConfig.Doorlock = {
     provider = 'auto',
 }

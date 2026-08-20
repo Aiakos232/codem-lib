@@ -718,15 +718,15 @@ end
 -- Permissions
 --------------------------------------------------------------------------------
 
----True if the player holds any permission group in Config.AdminPermissions, or
----the 'command' ace (txAdmin / server console admins). Falls back to 'god' when
----no groups are configured.
+---True if the player holds any permission group in LibConfig.AdminPermissions,
+---or the 'command' ace (txAdmin / server console admins). Falls back to 'god'
+---when no groups are configured.
 ---@param src number
 ---@return boolean
 function Framework.Server.IsAdmin(src)
     if not src then return false end
 
-    local perms = Config.AdminPermissions
+    local perms = LibConfig and LibConfig.AdminPermissions
     if type(perms) ~= 'table' or next(perms) == nil then
         perms = { ['god'] = true }
     end

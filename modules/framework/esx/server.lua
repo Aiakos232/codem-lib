@@ -406,8 +406,8 @@ end
 -- Permissions
 --------------------------------------------------------------------------------
 
----True if the player's ESX group is enabled in Config.AdminPermissions, or the
----player holds the 'command' ace (txAdmin / server console admins).
+---True if the player's ESX group is enabled in LibConfig.AdminPermissions, or
+---the player holds the 'command' ace (txAdmin / server console admins).
 ---@param src number
 ---@return boolean
 function Framework.Server.IsAdmin(src)
@@ -419,7 +419,7 @@ function Framework.Server.IsAdmin(src)
     if not xPlayer then return false end
     local grp = (xPlayer.getGroup and xPlayer.getGroup()) or xPlayer.group or 'user'
 
-    local perms = Config.AdminPermissions
+    local perms = LibConfig and LibConfig.AdminPermissions
     if type(perms) ~= 'table' or next(perms) == nil then
         perms = { ['admin'] = true, ['superadmin'] = true }
     end

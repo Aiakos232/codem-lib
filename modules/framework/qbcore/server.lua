@@ -598,57 +598,82 @@ local function playerByCid(cid)
     return QBCore.Functions.GetPlayerByCitizenId(cid)
 end
 
----Offline job change through the core's own objects, never raw SQL.
+---Full job table for the players.job column, built from the shared jobs
+---data so the player loads with a valid grade structure next time.
+local function buildJobObject(name, grade)
+    local jobs
+    if isQbox then
+        local ok, j = pcall(function() return exports.qbx_core:GetJobs() end)
+        jobs = ok and j or {}
+    else
+        jobs = QBCore.Shared.Jobs or {}
+    end
+    local jobData = jobs[name]
+    local grades = jobData and jobData.grades or {}
+    local gradeData = grades[grade] or grades[tostring(grade)] or {}
+    return {
+        name = name,
+        type = jobData and jobData.type or nil,
+        label = jobData and jobData.label or name,
+        isboss = gradeData.isboss == true,
+        onduty = (jobData and jobData.defaultDuty) == true,
+        payment = gradeData.payment or 0,
+        grade = {
+            name = gradeData.name or tostring(grade),
+            level = grade,
+        },
+    }
+end
+
+---Last-resort offline job change: write the players.job JSON column
+---directly. Used when the core exposes no working offline-player API
+---(same approach as codem-phone's jobby app).
+local function setOfflineJobSql(cid, name, grade)
+    local encoded = json.encode(buildJobObject(name, grade))
+    local affected
+    if MySQL and MySQL.update and MySQL.update.await then
+        affected = MySQL.update.await('UPDATE players SET job = ? WHERE citizenid = ?', { encoded, cid })
+    else
+        local p = promise.new()
+        exports.oxmysql:update('UPDATE players SET job = ? WHERE citizenid = ?', { encoded, cid },
+            function(n) p:resolve(n) end)
+        affected = Citizen.Await(p)
+    end
+    return (tonumber(affected) or 0) > 0
+end
+
+---Offline job change through the core's own objects when available.
 ---qb-core: offline player object supports Functions.SetJob + Save.
 ---Qbox: the offline object's Functions.SetJob resolves a source internally
 ---and errors for offline players - build the job table on PlayerData from
 ---the shared jobs data and persist with SaveOffline instead.
+---Either path missing or failing falls back to a direct SQL update.
 local function setOfflineJob(cid, name, grade)
     if isQbox then
         local okGet, offline = pcall(function() return exports.qbx_core:GetOfflinePlayer(cid) end)
-        if not okGet or not offline or not offline.PlayerData then return false end
-
-        local okJobs, jobs = pcall(function() return exports.qbx_core:GetJobs() end)
-        local jobData = okJobs and jobs and jobs[name] or nil
-        local grades = jobData and jobData.grades or {}
-        local gradeData = grades[grade] or grades[tostring(grade)] or {}
-
-        offline.PlayerData.job = {
-            name = name,
-            type = jobData and jobData.type or nil,
-            label = jobData and jobData.label or name,
-            isboss = gradeData.isboss == true,
-            onduty = (jobData and jobData.defaultDuty) == true,
-            payment = gradeData.payment or 0,
-            grade = {
-                name = gradeData.name or tostring(grade),
-                level = grade,
-            },
-        }
-        local okSave, err = pcall(function() exports.qbx_core:SaveOffline(offline.PlayerData) end)
-        if not okSave then
-            print(('[codem-lib] SetJobGrade: SaveOffline failed for %s: %s'):format(cid, tostring(err)))
+        if okGet and offline and offline.PlayerData then
+            offline.PlayerData.job = buildJobObject(name, grade)
+            local okSave, err = pcall(function() exports.qbx_core:SaveOffline(offline.PlayerData) end)
+            if okSave then return true end
+            print(('[codem-lib] setOfflineJob: SaveOffline failed for %s: %s'):format(cid, tostring(err)))
         end
-        return okSave
+        return setOfflineJobSql(cid, name, grade)
     end
 
     local okGet, offline = pcall(function()
         return QBCore.Functions.GetOfflinePlayerByCitizenId(cid)
     end)
-    if not okGet or not offline then
-        if not okGet then
-            print(('[codem-lib] setOfflineJob: offline lookup failed for %s: %s'):format(cid, tostring(offline)))
-        end
-        return false
-    end
-    local okSet, err = pcall(function()
-        offline.Functions.SetJob(name, grade)
-        offline.Functions.Save()
-    end)
-    if not okSet then
+    if okGet and offline then
+        local okSet, err = pcall(function()
+            offline.Functions.SetJob(name, grade)
+            offline.Functions.Save()
+        end)
+        if okSet then return true end
         print(('[codem-lib] setOfflineJob: save failed for %s: %s'):format(cid, tostring(err)))
+    elseif not okGet then
+        print(('[codem-lib] setOfflineJob: offline lookup failed for %s: %s'):format(cid, tostring(offline)))
     end
-    return okSet
+    return setOfflineJobSql(cid, name, grade)
 end
 
 ---Apply a job change to an online OR offline player. Returns false when the
@@ -675,11 +700,16 @@ function Framework.Server.SetJobGrade(cid, job, grade)
 end
 
 ---Fire an employee from a job (falls back to unemployed).
+---Some servers define unemployed grades starting at 1 instead of 0, so the
+---lowest grade actually defined in the shared jobs data is used; 0 only when
+---the job has no grade list at all.
 ---@param cid string
 ---@param job string
 ---@return boolean
 function Framework.Server.FireFromJob(cid, job)
-    local ok = setJobFor(cid, 'unemployed', 0)
+    local grades = Framework.Server.GetJobGrades('unemployed')
+    local lowest = grades[1] and grades[1].level or 0
+    local ok = setJobFor(cid, 'unemployed', lowest)
     if ok then employeeCache[job] = nil end
     return ok
 end

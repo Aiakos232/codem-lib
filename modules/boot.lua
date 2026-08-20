@@ -80,6 +80,30 @@ CreateThread(function()
         'mythic_notify', '17mov_Hud', 'gs-notify',
     }, 'ox')
 
+    local doorlock = detect(LibConfig.Doorlock and LibConfig.Doorlock.provider, {
+        'ox_doorlock', 'qb-doorlock',
+    }, 'native')
+
+    local garage = detect(LibConfig.Garage and LibConfig.Garage.provider, {
+        'qbx_garages', 'qb-garages', 'cd_garage', 'qs-advancedgarages',
+    }, 'none')
+    if LibConfig.Garage and (LibConfig.Garage.provider == 'none' or LibConfig.Garage.provider == false) then
+        garage = 'none'
+    end
+
+    local wardrobe = detect(LibConfig.Wardrobe and LibConfig.Wardrobe.provider, {
+        'illenium-appearance', 'fivem-appearance', 'qb-clothing',
+        'rcore_clothing', 'esx_skin', 'skinchanger',
+    }, 'none')
+    if LibConfig.Wardrobe and (LibConfig.Wardrobe.provider == 'none' or LibConfig.Wardrobe.provider == false) then
+        wardrobe = 'none'
+    elseif wardrobe == 'none' then
+        local cfg = LibConfig.Wardrobe or {}
+        if type(cfg.open) == 'function' or (type(cfg.event) == 'string' and cfg.event ~= '') then
+            wardrobe = 'custom'
+        end
+    end
+
     print(table.concat({
         '^2[codem-lib]^0 v' .. (GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?') .. ' — providers:',
         '  framework   : ^3' .. framework .. '^0',
@@ -91,5 +115,8 @@ CreateThread(function()
         '  medical     : ^3' .. medical .. '^0',
         '  notify      : ^3' .. notify .. '^0',
         '  billing     : ^3' .. billing .. '^0',
+        '  doorlock    : ^3' .. doorlock .. '^0',
+        '  garage      : ^3' .. garage .. '^0',
+        '  wardrobe    : ^3' .. wardrobe .. '^0',
     }, '\n'))
 end)

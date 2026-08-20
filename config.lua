@@ -104,3 +104,15 @@ LibConfig.VehicleKeys = {
     -- top of the main provider (the ignition system is a separate layer).
     hotwireIgnition = true,
 }
+
+LibConfig.Doorlock = {
+    provider = 'auto',
+}
+
+LibConfig.Garage = {
+    provider = 'auto',
+}
+
+LibConfig.Wardrobe = {
+    provider = 'auto',
+}

@@ -107,6 +107,23 @@ if IsDuplicityVersion() then
         Set = function(src, vehicle, amount) return exports[LIB]:SetFuel(src, vehicle, amount) end,
     }
 
+    CodemLib.Doorlock = {
+        Provider = function() return exports[LIB]:GetDoorlockProvider() end,
+    }
+
+    CodemLib.Garage = {
+        Provider = function() return exports[LIB]:GetGarageProvider() end,
+        Enabled = function() return exports[LIB]:GetGarageProvider() ~= 'none' end,
+        Name = function(id, pointId) return exports[LIB]:GarageName(id, pointId) end,
+        Register = function(lots, opts) return exports[LIB]:RegisterGarages(lots, opts) end,
+        Reset = function() return exports[LIB]:ResetGarageRegistry() end,
+    }
+
+    CodemLib.Wardrobe = {
+        Provider = function() return exports[LIB]:GetWardrobeProvider() end,
+        Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
+    }
+
     ---@param src number player server id (-1 = everyone)
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
@@ -203,6 +220,25 @@ else
         Set = function(vehicle, amount) return exports[LIB]:SetFuel(vehicle, amount) end,
     }
 
+    CodemLib.Doorlock = {
+        Provider = function() return exports[LIB]:GetDoorlockProvider() end,
+        Apply = function(door) return exports[LIB]:ApplyDoorlock(door) end,
+        ApplyLeaves = function(leaves, locked) return exports[LIB]:ApplyDoorlockLeaves(leaves, locked) end,
+        Clear = function() return exports[LIB]:ClearDoorlock() end,
+    }
+
+    CodemLib.Garage = {
+        Provider = function() return exports[LIB]:GetGarageProvider() end,
+        Enabled = function() return exports[LIB]:GetGarageProvider() ~= 'none' end,
+        Name = function(id, pointId) return exports[LIB]:GarageName(id, pointId) end,
+    }
+
+    CodemLib.Wardrobe = {
+        Provider = function() return exports[LIB]:GetWardrobeProvider() end,
+        Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
+        Open = function() return exports[LIB]:OpenWardrobe() end,
+    }
+
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
     ---@param duration? number ms
@@ -241,4 +277,8 @@ else
         ---@param stashId string, invData? table @return boolean handled
         OpenStash = function(stashId, invData) return exports[LIB]:OpenStash(stashId, invData) end,
     }
+end
+
+if not IsDuplicityVersion() then
+    loadLibFile('modules/garage/client.lua')
 end

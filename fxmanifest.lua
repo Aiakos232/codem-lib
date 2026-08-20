@@ -14,6 +14,9 @@ shared_scripts {
     'config.lua',
     'modules/lib_compat.lua',
     'modules/inventory/shared.lua',
+    'modules/doorlock/shared.lua',
+    'modules/garage/shared.lua',
+    'modules/wardrobe/shared.lua',
 }
 
 client_scripts {
@@ -23,6 +26,8 @@ client_scripts {
     'modules/textui/client.lua',
     'modules/progress/client.lua',
     'modules/skillcheck/client.lua',
+    'modules/doorlock/client.lua',
+    'modules/wardrobe/client.lua',
     'modules/inventory/ox_inventory/client.lua',
     'modules/inventory/qb-inventory/client.lua',
     'modules/inventory/ps-inventory/client.lua',
@@ -60,6 +65,7 @@ server_scripts {
     'modules/inventory/jpr-inventory/server.lua',
     'modules/inventory/S-inventory/server.lua',
     'modules/inventory/exports_server.lua',
+    'modules/garage/server.lua',
     -- Owned vehicle tables (player_vehicles / owned_vehicles), normalised.
     'modules/vehicles/server.lua',
     'modules/boot.lua',
@@ -71,6 +77,7 @@ files {
     'framework.lua',
     'modules/framework/**/*.lua',
     'modules/target/client.lua',
+    'modules/garage/client.lua',
 }
 
 lua54 'yes'

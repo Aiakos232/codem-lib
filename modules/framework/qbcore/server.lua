@@ -511,8 +511,11 @@ local function dbJobEmployees(job)
         local okC, info  = pcall(json.decode, row.charinfo)
         local okJ, jdata = pcall(json.decode, row.job)
         out[#out + 1]    = {
-            cid   = row.citizenid,
-            name  = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or row.citizenid,
+            -- tostring: numeric citizenid columns come back as Lua numbers,
+            -- while the live PlayerData may hold a string - the dedup in
+            -- GetJobEmployees needs both sides on one key type.
+            cid   = tostring(row.citizenid),
+            name  = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or tostring(row.citizenid),
             grade = okJ and (jdata.grade and (jdata.grade.name or jdata.grade.level)) or 0,
         }
     end
@@ -540,15 +543,19 @@ function Framework.Server.GetJobEmployees(job)
     for _, player in pairs(onlinePlayers() or {}) do
         local pd = player and player.PlayerData
         if pd and pd.citizenid then
+            -- tostring matches the DB pass: on servers with numeric citizenids
+            -- the two sides otherwise key as number vs string and the dedup
+            -- misses, listing every online employee twice.
+            local cid = tostring(pd.citizenid)
             if pd.job and pd.job.name == job then
                 local ci = pd.charinfo or {}
-                online[pd.citizenid] = {
-                    cid   = pd.citizenid,
+                online[cid] = {
+                    cid   = cid,
                     name  = ('%s %s'):format(ci.firstname or '', ci.lastname or ''):gsub('%s+$', ''),
                     grade = pd.job.grade and (pd.job.grade.name or pd.job.grade.level) or 0,
                 }
             else
-                online[pd.citizenid] = false
+                online[cid] = false
             end
         end
     end
@@ -591,11 +598,20 @@ function Framework.Server.GetJobGrades(job)
 end
 
 ---Online player object by citizenid, or nil when offline.
+---Retries with the numeric form: GetJobEmployees hands out string cids, but a
+---core with numeric citizenids compares them as numbers.
 local function playerByCid(cid)
-    if isQbox then
-        return exports.qbx_core:GetPlayerByCitizenId(cid)
+    local function get(c)
+        if isQbox then
+            return exports.qbx_core:GetPlayerByCitizenId(c)
+        end
+        return QBCore.Functions.GetPlayerByCitizenId(c)
     end
-    return QBCore.Functions.GetPlayerByCitizenId(cid)
+    local player = get(cid)
+    if not player and tonumber(cid) then
+        player = get(tonumber(cid))
+    end
+    return player
 end
 
 ---Full job table for the players.job column, built from the shared jobs

@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['qs-inventory'] = Inventory
 
+--Whether an item can carry per-item metadata (info) through this bridge.
+--Scripts that key an item to a thing (a room key, a vehicle key) ask this
+--before trusting the item.
+Inventory.supportsMetadata = true
+
 --@return boolean [can the player carry itemCount of itemName]
 Inventory.canCarry = function(playerId, itemName, itemCount)
     return exports['qs-inventory']:CanCarryItem(playerId, itemName, itemCount) ~= false

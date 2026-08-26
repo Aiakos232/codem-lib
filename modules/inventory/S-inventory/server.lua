@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['S-inventory'] = Inventory
 
+--Whether an item can carry per-item metadata (info) through this bridge.
+--Scripts that key an item to a thing (a room key, a vehicle key) ask this
+--before trusting the item.
+Inventory.supportsMetadata = false
+
 -- ESX is resolved lazily: this file loads on every server, but the shared
 -- object only exists when es_extended is actually running.
 local ESX

@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['jpr-inventory'] = Inventory
 
+--Whether an item can carry per-item metadata (info) through this bridge.
+--Scripts that key an item to a thing (a room key, a vehicle key) ask this
+--before trusting the item.
+Inventory.supportsMetadata = true
+
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'shop' then
         exports['jpr-inventory']:OpenShop(source, data.type)

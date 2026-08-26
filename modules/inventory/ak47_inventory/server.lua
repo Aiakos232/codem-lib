@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['ak47_inventory'] = Inventory
 
+--Whether an item can carry per-item metadata (info) through this bridge.
+--Scripts that key an item to a thing (a room key, a vehicle key) ask this
+--before trusting the item.
+Inventory.supportsMetadata = true
+
 --@param playerId: number [existing player id]
 --@return items: table [{name: string, amount: number, metadata: table, slot: number}]
 Inventory.getPlayerItems = function(playerId)

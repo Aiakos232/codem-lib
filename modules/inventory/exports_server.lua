@@ -72,6 +72,20 @@ exports('OpenStashServer', function(src, stashId, invData) return call('openStas
     callers treat that like any other refusal rather than crashing on a
     missing export.
 ]]
+--[[
+    Can an item carry per-item metadata on the running inventory?
+
+    False when no inventory is running, or the provider does not say. An
+    item that cannot hold metadata cannot be "the key to room 12" — it is
+    the same item as every other key — so callers refuse item-keyed
+    features rather than hand out a master key by accident.
+]]
+exports('SupportsItemMetadata', function()
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    return provider ~= nil and provider.supportsMetadata == true
+end)
+
 exports('MoveStash', function(fromId, toId)
     local res = LibGetInventoryResource()
     local provider = res and LibInventoryProviders[res]

@@ -7,6 +7,11 @@ end
 local Inventory = {}
 LibInventoryProviders['codem-inventory'] = Inventory
 
+--Whether an item can carry per-item metadata (info) through this bridge.
+--Scripts that key an item to a thing (a room key, a vehicle key) ask this
+--before trusting the item.
+Inventory.supportsMetadata = true
+
 --@return boolean [codem-inventory has no reliable carry-weight export; allow]
 Inventory.canCarry = function(playerId, itemName, itemCount)
     return true

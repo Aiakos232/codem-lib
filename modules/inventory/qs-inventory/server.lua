@@ -91,3 +91,13 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--Stash items in and out through qs's own stash exports.
+Inventory.moveStash = function(fromId, toId)
+    local qs = exports['qs-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id) return qs:GetStashItems(id) end,
+        add = function(id, name, count, meta) return qs:AddItemIntoStash(id, name, count, nil, meta) ~= false end,
+        remove = function(id, name, count, _, slot) qs:RemoveItemIntoStash(id, name, count, slot) end,
+    })
+end

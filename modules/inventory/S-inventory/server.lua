@@ -100,3 +100,13 @@ end
 Inventory.capacity = function(playerId)
     return LibPlayerCapacity(playerId)
 end
+
+--S-inventory: stashes through its own stash exports.
+Inventory.moveStash = function(fromId, toId)
+    local si = exports['S-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id) return si:GetStashItems(id) end,
+        add = function(id, name, count, meta) return si:AddItemToStash(id, name, count, meta) ~= false end,
+        remove = function(id, name, count, _, slot) si:RemoveItemFromStash(id, name, count, slot) end,
+    })
+end

@@ -164,3 +164,13 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--Stash items in and out through tgiann's own stash exports.
+Inventory.moveStash = function(fromId, toId)
+    local tg = exports['tgiann-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id) return tg:GetStashItems(id) end,
+        add = function(id, name, count, meta) return tg:AddItemToStash(id, name, count, nil, meta) ~= false end,
+        remove = function(id, name, count, _, slot) tg:RemoveItemFromStash(id, name, count, slot) end,
+    })
+end

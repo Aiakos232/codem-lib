@@ -30,6 +30,51 @@ end
 
 exports('GetInventoryResource', LibGetInventoryResource)
 
+--[[
+    Move every item from one stash to another, with whichever three calls the
+    provider has. Shared so each provider only says HOW to read, add and
+    remove; the order, the rollback and the answer shape live here.
+
+      ops.items(id)                          -> list|nil (nil = stash unknown)
+      ops.add(id, name, count, meta, slot)   -> false when refused; nil/true = ok
+      ops.remove(id, name, count, meta, slot)
+
+    Item rows differ per inventory: count may be `count` or `amount`, metadata
+    `metadata` or `info`. Both spellings are read.
+
+    Returns true, or false plus { missing = id } / { blocked = itemName }.
+    On a refusal everything already moved is put back, so a tenant's things
+    end up in one cupboard or the other — never split.
+]]
+---@param fromId string
+---@param toId string
+---@param ops table
+---@return boolean ok, table|nil detail
+function LibMoveStashWith(fromId, toId, ops)
+    local src = ops.items(fromId)
+    if type(src) ~= 'table' then return false, { missing = fromId } end
+    local dst = ops.items(toId)
+    if type(dst) ~= 'table' then return false, { missing = toId } end
+
+    local moved = {}
+    for _, item in pairs(src) do
+        local count = type(item) == 'table' and tonumber(item.count or item.amount) or 0
+        if type(item) == 'table' and item.name and count > 0 then
+            local meta = item.metadata or item.info
+            if ops.add(toId, item.name, count, meta, nil) == false then
+                for _, done in ipairs(moved) do
+                    ops.remove(toId, done.name, done.count, done.meta, nil)
+                    ops.add(fromId, done.name, done.count, done.meta, nil)
+                end
+                return false, { blocked = item.name }
+            end
+            ops.remove(fromId, item.name, count, meta, item.slot)
+            moved[#moved + 1] = { name = item.name, count = count, meta = meta }
+        end
+    end
+    return true
+end
+
 ---Build an inventory icon url. Honors the item's OWN image field (kept with its
 ---extension, e.g. 'farming/wheat.webp') and passes absolute http/nui urls
 ---through untouched. Only when the item has no image do we fall back to

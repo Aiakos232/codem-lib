@@ -127,3 +127,16 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--ps (qb lineage) takes a stash id wherever it takes a player id.
+Inventory.moveStash = function(fromId, toId)
+    local ps = exports['ps-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = ps:GetInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta) return ps:AddItem(id, name, count, false, meta) ~= false end,
+        remove = function(id, name, count, _, slot) ps:RemoveItem(id, name, count, slot or false) end,
+    })
+end

@@ -73,3 +73,13 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--ak47 takes an inventory id (player or stash) in AddItem/RemoveItem.
+Inventory.moveStash = function(fromId, toId)
+    local ak = exports['ak47_inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id) return ak:GetInventoryItems(id) end,
+        add = function(id, name, count, meta) return ak:AddItem(id, name, count, nil, meta) ~= false end,
+        remove = function(id, name, count, _, slot) ak:RemoveItem(id, name, count, slot) end,
+    })
+end

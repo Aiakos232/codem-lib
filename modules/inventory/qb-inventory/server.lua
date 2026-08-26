@@ -129,6 +129,26 @@ Inventory.capacity = function(playerId)
     return LibPlayerCapacity(playerId)
 end
 
+--@param fromId: string
+--@param toId: string
+--@return ok: boolean, detail: table|nil  see exports_server.lua MoveStash
+--qb-inventory (2024+) takes a stash id wherever it takes a player id.
+Inventory.moveStash = function(fromId, toId)
+    local qb = exports['qb-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = qb:GetInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta)
+            return qb:AddItem(id, name, count, false, meta, 'codem-lib:moveStash') ~= false
+        end,
+        remove = function(id, name, count, _, slot)
+            qb:RemoveItem(id, name, count, slot or false, 'codem-lib:moveStash')
+        end,
+    })
+end
+
 --@param stashId: string|number
 --@return items: table or nil when the stash is unknown
 Inventory.stashItems = function(stashId)

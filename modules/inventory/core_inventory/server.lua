@@ -75,3 +75,17 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--core_inventory addresses a stash by its inventory name in the same
+--addItem/removeItem it uses for players.
+Inventory.moveStash = function(fromId, toId)
+    local core = exports['core_inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = core:getInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta) return core:addItem(id, name, count, meta) ~= false end,
+        remove = function(id, name, count) core:removeItem(id, name, count) end,
+    })
+end

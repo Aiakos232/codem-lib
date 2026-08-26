@@ -119,3 +119,16 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--jpr (qs lineage) takes a stash id in its stash exports.
+Inventory.moveStash = function(fromId, toId)
+    local jpr = exports['jpr-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = jpr:GetInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta) return jpr:AddItemIntoStash(id, name, count, nil, meta) ~= false end,
+        remove = function(id, name, count, _, slot) jpr:RemoveItemIntoStash(id, name, count, slot) end,
+    })
+end

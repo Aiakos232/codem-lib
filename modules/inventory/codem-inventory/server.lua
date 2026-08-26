@@ -91,3 +91,16 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--codem-inventory takes a stash id wherever it takes a player id.
+Inventory.moveStash = function(fromId, toId)
+    local cm = exports['codem-inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = cm:GetInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta) return cm:AddItem(id, name, count, nil, meta) ~= false end,
+        remove = function(id, name, count, _, slot) cm:RemoveItem(id, name, count, slot) end,
+    })
+end

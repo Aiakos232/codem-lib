@@ -79,3 +79,16 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--jaksam takes an inventory id (player or stash) in addItem/removeItem.
+Inventory.moveStash = function(fromId, toId)
+    local jk = exports['jaksam_inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = jk:getInventory(id)
+            return type(inv) == 'table' and (inv.items or inv) or nil
+        end,
+        add = function(id, name, count, meta) return jk:addItem(id, name, count, meta) ~= false end,
+        remove = function(id, name, count, meta, slot) jk:removeItem(id, name, count, meta, slot) end,
+    })
+end

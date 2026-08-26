@@ -73,3 +73,13 @@ Inventory.stashItems = function(stashId)
     -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
     return inv.items or inv
 end
+
+--origen takes an inventory id (player or stash) in addItem/removeItem.
+Inventory.moveStash = function(fromId, toId)
+    local og = exports['origen_inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id) return og:getInventoryItems(id) end,
+        add = function(id, name, count, meta) return og:addItem(id, name, count, meta) ~= false end,
+        remove = function(id, name, count, meta, slot) og:removeItem(id, name, count, meta, slot) end,
+    })
+end

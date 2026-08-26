@@ -107,6 +107,23 @@ Inventory.capacity = function(playerId)
     }
 end
 
+--@param fromId: string [stash identifier]
+--@param toId: string [stash identifier]
+--@return ok: boolean, detail: table|nil  see exports_server.lua MoveStash
+--Item by item, and every item already moved goes back if one will not fit:
+--a tenant's things end up in one cupboard or the other, never split.
+Inventory.moveStash = function(fromId, toId)
+    local ox = exports['ox_inventory']
+    return LibMoveStashWith(fromId, toId, {
+        items = function(id)
+            local inv = ox:GetInventory(id, false)
+            return type(inv) == 'table' and (inv.items or {}) or nil
+        end,
+        add = function(id, name, count, meta) return ox:AddItem(id, name, count, meta) == true end,
+        remove = function(id, name, count, meta, slot) ox:RemoveItem(id, name, count, meta, slot) end,
+    })
+end
+
 --@param stashId: string|number [stash identifier]
 --@return items: table [same shape as getPlayerItems] or nil when the stash is unknown
 Inventory.stashItems = function(stashId)

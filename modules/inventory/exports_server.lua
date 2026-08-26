@@ -60,3 +60,29 @@ exports('RegisterStash', function(stashId, label, slots, weight, groups, coords,
     return call('registerStash', stashId, label, slots, weight, groups, coords, opts)
 end)
 exports('OpenStashServer', function(src, stashId, invData) return call('openStashServer', src, stashId, invData) end)
+
+--[[
+    Move every item from one stash to another.
+
+    Returns `true`, or `false, detail` where detail is one of:
+      { missing = stashId }   a stash the inventory does not know
+      { blocked = itemName }  the destination would not take this item;
+                              whatever was already moved has been put back
+    Providers without a `moveStash` answer `false, { unsupported = true }` —
+    callers treat that like any other refusal rather than crashing on a
+    missing export.
+]]
+exports('MoveStash', function(fromId, toId)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider.moveStash then
+        print(('[codem-lib] Inventory.moveStash: not supported by "%s"'):format(tostring(res)))
+        return false, { unsupported = true }
+    end
+    local ok, a, b = pcall(provider.moveStash, fromId, toId)
+    if not ok then
+        print(('[codem-lib] Inventory.moveStash via "%s" failed: %s'):format(res, tostring(a)))
+        return false, { error = tostring(a) }
+    end
+    return a, b
+end)

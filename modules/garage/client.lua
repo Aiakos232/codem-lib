@@ -20,11 +20,15 @@ local function tryExport(resource, method, ...)
     return ok and result ~= false
 end
 
+-- A spot arrives as the database left it: heading can be NULL, a coordinate
+-- can be a string. vector3/vector4 take numbers only, so coerce once here.
 local function spawnOffset(spot)
-    local heading = spot.heading or 0.0
-    local sx = spot.x + math.sin(math.rad(heading)) * 3.5
-    local sy = spot.y + math.cos(math.rad(heading)) * 3.5
-    return sx, sy, spot.z, heading
+    local heading = (tonumber(spot.heading) or 0.0) + 0.0
+    local x = (tonumber(spot.x) or 0.0) + 0.0
+    local y = (tonumber(spot.y) or 0.0) + 0.0
+    local z = (tonumber(spot.z) or 0.0) + 0.0
+    local rad = math.rad(heading)
+    return x + math.sin(rad) * 3.5, y + math.cos(rad) * 3.5, z, heading
 end
 
 local function parkQbx(garageName)
@@ -71,15 +75,144 @@ local function openQbx(spot)
     return true
 end
 
-local function openQb(spot)
-    if tryExport('qb-garages', 'openGarage', spot.garageName) then return true end
-    if tryExport('qb-garages', 'OpenGarage', spot.garageName) then return true end
-    TriggerEvent('qb-garages:client:openGarage', spot.garageName)
-    TriggerEvent('qb-garage:client:openGarage', spot.garageName)
-    if currentVehicle() then
-        TriggerEvent('qb-garages:client:putInGarage')
-        TriggerEvent('qb-garage:client:putAwayVehicle')
+-- Config.VehicleClass['all'] in qb-garages. Only read when Config.ClassSystem
+-- is on, and a nil category crashes its filter.
+local QB_ALL_CLASSES = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 }
+
+local FUEL_RESOURCES = {
+    'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel', 'ox_fuel',
+    'myFuel', 'okokGasStation', 'qs-fuelstations', 'rcore_fuel', 'x-fuel',
+}
+
+local function qbCore()
+    if GetResourceState('qb-core') ~= 'started' then return nil end
+    local ok, core = pcall(function() return exports['qb-core']:GetCoreObject() end)
+    if ok and type(core) == 'table' then return core end
+    return nil
+end
+
+local function qbAwait(core, name, ...)
+    local p = promise.new()
+    core.Functions.TriggerCallback(name, function(...) p:resolve(table.pack(...)) end, ...)
+    local r = Citizen.Await(p)
+    return table.unpack(r, 1, r.n)
+end
+
+local function readFuel(vehicle)
+    for i = 1, #FUEL_RESOURCES do
+        local res = FUEL_RESOURCES[i]
+        if GetResourceState(res) == 'started' then
+            local ok, level = pcall(function() return exports[res]:GetFuel(vehicle) end)
+            if ok and type(level) == 'number' then return level end
+        end
     end
+    return GetVehicleFuelLevel(vehicle) + 0.0
+end
+
+-- qb-menu drives its entries through events, not closures.
+local qbPick = nil
+AddEventHandler('codem-lib:client:garagePick', function(index)
+    if qbPick then qbPick(index) end
+end)
+
+local function qbList(id, title, entries, onPick)
+    if lib and lib.registerContext then
+        local options = {}
+        for i, e in ipairs(entries) do
+            options[i] = {
+                title = e.title,
+                description = e.description,
+                icon = 'car',
+                onSelect = function() onPick(i) end,
+            }
+        end
+        lib.registerContext({ id = id, title = title, options = options })
+        lib.showContext(id)
+        return true
+    end
+    if GetResourceState('qb-menu') == 'started' then
+        qbPick = onPick
+        local menu = { { header = title, isMenuHeader = true } }
+        for i, e in ipairs(entries) do
+            menu[#menu + 1] = {
+                header = e.title,
+                txt = e.description,
+                params = { event = 'codem-lib:client:garagePick', args = i },
+            }
+        end
+        exports['qb-menu']:openMenu(menu)
+        return true
+    end
+    return false
+end
+
+local function parkQb(spot, core, vehicle)
+    local plate = core.Functions.GetPlate(vehicle)
+    if not plate or plate == '' then return false, 'failed' end
+
+    if not qbAwait(core, 'qb-garages:server:canDeposit', plate, 'public', spot.garageName, 1) then
+        return false, 'not_owned'
+    end
+
+    TriggerServerEvent('qb-garages:server:updateVehicleStats', plate, readFuel(vehicle),
+        math.ceil(GetVehicleEngineHealth(vehicle)), math.ceil(GetVehicleBodyHealth(vehicle)))
+    if GetResourceState('qb-mechanicjob') == 'started' then
+        TriggerServerEvent('qb-mechanicjob:server:SaveVehicleProps', core.Functions.GetVehicleProperties(vehicle))
+    end
+    TriggerServerEvent('qb-garages:server:UpdateOutsideVehicle', plate, 0)
+
+    for seat = -1, 5 do
+        local ped = GetPedInVehicleSeat(vehicle, seat)
+        if ped ~= 0 then TaskLeaveVehicle(ped, vehicle, 0) end
+    end
+    Wait(1500)
+    core.Functions.DeleteVehicle(vehicle)
+    return true
+end
+
+local function openQb(spot)
+    local core = qbCore()
+    if not core then return false, 'failed' end
+
+    local vehicle = currentVehicle()
+    if vehicle then return parkQb(spot, core, vehicle) end
+
+    local rows = qbAwait(core, 'qb-garages:server:GetGarageVehicles', spot.garageName, 'public', QB_ALL_CLASSES)
+    if type(rows) ~= 'table' then return false, 'empty' end
+
+    local vehicles, entries = {}, {}
+    for _, v in ipairs(rows) do
+        if tonumber(v.state) == 1 then
+            local shared = core.Shared and core.Shared.Vehicles and core.Shared.Vehicles[v.vehicle]
+            local name = (shared and shared.name) or v.vehicle
+            if shared and shared.brand then name = shared.brand .. ' ' .. shared.name end
+            vehicles[#vehicles + 1] = v
+            entries[#entries + 1] = { title = name, description = v.plate }
+        end
+    end
+    if #vehicles == 0 then return false, 'empty' end
+
+    local sx, sy, sz, sh = spawnOffset(spot)
+    local spawn = vector4(sx, sy, sz, sh)
+    local id = ('codem_garage_%s'):format(tostring(spot.id or spot.garageName))
+    local title = (spot.label ~= nil and spot.label ~= '') and spot.label or 'Garage'
+
+    local shown = qbList(id, title, entries, function(index)
+        local v = vehicles[index]
+        if not v then return end
+        TriggerEvent('qb-garages:client:takeOutGarage', {
+            garage = { spawnPoint = { spawn } },
+            plate = v.plate,
+            vehicle = v.vehicle,
+            type = 'public',
+            stats = {
+                fuel = tonumber(v.fuel) or 100.0,
+                engine = tonumber(v.engine) or 1000.0,
+                body = tonumber(v.body) or 1000.0,
+            },
+        })
+    end)
+    if not shown then return false, 'failed' end
     return true
 end
 
@@ -122,7 +255,7 @@ function CodemLib.Garage.Bind(spot)
     local sx, sy, sz, sh = spawnOffset(spot)
     if p == 'qb-garages' then
         TriggerEvent('qb-garages:client:addHouseGarage', spot.garageName, {
-            takeVehicle = { x = spot.x, y = spot.y, z = spot.z },
+            takeVehicle = { x = sx, y = sy, z = sz, w = sh },
             spawnPoint = { { x = sx, y = sy, z = sz, w = sh } },
             label = (spot.label ~= nil and spot.label ~= '') and spot.label or 'Garage',
             type = 'public',

@@ -12,9 +12,15 @@ local function garageName(id, pointId)
     return exports['codem-lib']:GarageName(id, pointId)
 end
 
+-- Rows arrive as the database left them: heading can be NULL, a coordinate
+-- can be a string. vector3/vector4 take numbers only, so coerce once here.
 local function spawnOf(x, y, z, heading)
-    local rad = math.rad(heading or 0.0)
-    return x + math.sin(rad) * 3.5, y + math.cos(rad) * 3.5, z, heading or 0.0
+    local h = (tonumber(heading) or 0.0) + 0.0
+    local px = (tonumber(x) or 0.0) + 0.0
+    local py = (tonumber(y) or 0.0) + 0.0
+    local pz = (tonumber(z) or 0.0) + 0.0
+    local rad = math.rad(h)
+    return px + math.sin(rad) * 3.5, py + math.cos(rad) * 3.5, pz, h
 end
 
 local function pack4(x, y, z, w)
@@ -68,8 +74,10 @@ local function registerQb(point, opts)
     local name = garageName(point.motelId or point.lotId, point.id)
     if sent[name] then return true end
     local sx, sy, sz, sh = spawnOf(point.x, point.y, point.z, point.heading)
+    -- qb-garages ignores spawnPoint and derives the spawn from takeVehicle,
+    -- where `w` is not optional: vector4(x, y, z, nil) errors.
     TriggerClientEvent('qb-garages:client:addHouseGarage', -1, name, {
-        takeVehicle = { x = point.x, y = point.y, z = point.z },
+        takeVehicle = { x = sx, y = sy, z = sz, w = sh },
         spawnPoint = { { x = sx, y = sy, z = sz, w = sh } },
         label = (point.label ~= nil and point.label ~= '') and point.label or (point.motelName or 'Garage'),
         type = 'public',

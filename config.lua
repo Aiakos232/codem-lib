@@ -42,6 +42,16 @@ LibConfig.Billing = {
     maxDistance = 0,
 }
 
+
+-- Weather / time sync provider.
+-- Supported: 'Renewed-Weathersync' | 'qbx_weathersync' | 'qb-weathersync'
+-- | 'cd_easytime' | 'av_sync' | 'av_weather' | 'wc_weathersync'
+-- | 'nc_weathersync' | 'ss-weathersync' | 'weathersync' | 'vSync' | 'auto'
+-- | false (no provider: codem-lib applies weather/time/blackout/freeze itself)
+LibConfig.Weather = {
+    provider = 'auto',
+}
+
 -- Inventory provider.
 -- Supported: 'ox_inventory' | 'qb-inventory' | 'ps-inventory' | 'qs-inventory'
 -- | 'codem-inventory' | 'core_inventory' | 'tgiann-inventory' | 'origen_inventory'

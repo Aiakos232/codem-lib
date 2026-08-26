@@ -124,6 +124,29 @@ if IsDuplicityVersion() then
         Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
     }
 
+    CodemLib.Weather = {
+        ---@param weather string native hash name, uppercase
+        ---@return boolean
+        Set = function(weather) return exports[LIB]:SetWeather(weather) end,
+        ---@param hour number
+        ---@param minute number
+        ---@return boolean
+        SetTime = function(hour, minute) return exports[LIB]:SetGameTime(hour, minute) end,
+        ---@param state boolean
+        ---@return boolean
+        SetBlackout = function(state) return exports[LIB]:SetBlackout(state) end,
+        ---@param state boolean
+        ---@return boolean
+        SetFreeze = function(state) return exports[LIB]:SetTimeFreeze(state) end,
+        ---@param state boolean
+        ---@return boolean
+        SetDynamic = function(state) return exports[LIB]:SetDynamicWeather(state) end,
+        ---@return { weather: string, blackout: boolean, freezeTime: boolean, dynamic: boolean, provider: string|nil }
+        State = function() return exports[LIB]:GetWeatherState() end,
+        ---@return string|nil active weathersync resource name
+        Provider = function() return exports[LIB]:GetWeatherProvider() end,
+    }
+
     ---@param src number player server id (-1 = everyone)
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
@@ -177,15 +200,19 @@ if IsDuplicityVersion() then
         Items = function(src) return exports[LIB]:GetPlayerItems(src) end,
         ---@param src number, itemName string, count number, metadata? table, slot? number
         ---@return boolean success (providers that return nil on success are treated as success)
-        Add = function(src, itemName, count, metadata, slot) return exports[LIB]:AddItem(src, itemName, count, metadata, slot) ~= false end,
+        Add = function(src, itemName, count, metadata, slot) return exports[LIB]:AddItem(src, itemName, count, metadata,
+                slot) ~= false end,
         ---@return boolean success (nil = success)
-        Remove = function(src, itemName, count, metadata, slot) return exports[LIB]:RemoveItem(src, itemName, count, metadata, slot) ~= false end,
+        Remove = function(src, itemName, count, metadata, slot) return exports[LIB]:RemoveItem(src, itemName, count,
+                metadata, slot) ~= false end,
         ---@return number
         Count = function(src, itemName, metadata) return exports[LIB]:GetItemCount(src, itemName, metadata) end,
         ---@param src number, itemName string, count? number, metadata? table @return boolean
-        Has = function(src, itemName, count, metadata) return (exports[LIB]:GetItemCount(src, itemName, metadata) or 0) >= (count or 1) end,
+        Has = function(src, itemName, count, metadata) return (exports[LIB]:GetItemCount(src, itemName, metadata) or 0) >=
+            (count or 1) end,
         ---@param src number, itemName string, count? number, metadata? table @return boolean can carry (default true when provider has no check)
-        CanCarry = function(src, itemName, count, metadata) return exports[LIB]:CanCarry(src, itemName, count or 1, metadata) end,
+        CanCarry = function(src, itemName, count, metadata) return exports[LIB]:CanCarry(src, itemName, count or 1,
+                metadata) end,
         Slot = function(src, slot) return exports[LIB]:GetItemSlot(src, slot) end,
         ---Item metadata for every item on the server.
         ---@return table<string, { label: string, weight: number, image: string|nil }>|nil
@@ -267,12 +294,17 @@ else
         ---@return number
         Count = function(itemName, metadata) return exports[LIB]:GetItemCount(itemName, metadata) end,
         ---@param itemName string, count? number, metadata? table @return boolean
-        Has = function(itemName, count, metadata) return (exports[LIB]:GetItemCount(itemName, metadata) or 0) >= (count or 1) end,
+        Has = function(itemName, count, metadata) return (exports[LIB]:GetItemCount(itemName, metadata) or 0) >=
+            (count or 1) end,
         ItemData = function(itemName) return exports[LIB]:GetItemData(itemName) end,
         ---@return string|nil item icon url/path
-        Image = function(itemName) local d = exports[LIB]:GetItemData(itemName); return d and d.image or nil end,
+        Image = function(itemName)
+            local d = exports[LIB]:GetItemData(itemName); return d and d.image or nil
+        end,
         ---@return string item label (falls back to the item name)
-        Label = function(itemName) local d = exports[LIB]:GetItemData(itemName); return (d and d.label) or itemName end,
+        Label = function(itemName)
+            local d = exports[LIB]:GetItemData(itemName); return (d and d.label) or itemName
+        end,
         Items = function() return exports[LIB]:GetPlayerItems() end,
         ---@param stashId string, invData? table @return boolean handled
         OpenStash = function(stashId, invData) return exports[LIB]:OpenStash(stashId, invData) end,

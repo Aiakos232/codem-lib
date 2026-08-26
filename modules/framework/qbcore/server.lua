@@ -127,22 +127,35 @@ function Framework.Server.SetCharInfo(src, patch)
     local info = Player.PlayerData.charinfo
     if type(info) ~= 'table' then return false end
 
-    local next_ = {}
-    for key, value in pairs(info) do next_[key] = value end
-
+    -- Yalnizca kunye alanlari, degerleri framework'un bekledigi bicimde.
+    local changes = {}
     for key, value in pairs(patch) do
         if key == 'gender' then
-            next_.gender = (value == 'female' or value == 1) and 1 or 0
+            changes.gender = (value == 'female' or value == 1) and 1 or 0
         elseif key == 'firstname' or key == 'lastname' or key == 'birthdate'
             or key == 'nationality' or key == 'phone' then
-            next_[key] = value
+            changes[key] = value
         end
     end
 
+    if next(changes) == nil then return false end
+
+    --[[
+        Qbox'in export'u tek alan aliyor: SetCharInfo(kaynak, alan, deger) ve
+        ilk satirinda `type(charInfo) ~= 'string'` ise donuyor. Buraya tablo
+        verilince sessizce hicbir sey yapmiyor, ustelik hata da dondurmuyordu:
+        panel "kaydedildi" diyor, deger yerinde kaliyordu. Alan alan gonderiliyor.
+    ]]
     if isQbox then
-        exports.qbx_core:SetCharInfo(src, next_)
+        for key, value in pairs(changes) do
+            exports.qbx_core:SetCharInfo(src, key, value)
+        end
         return true
     end
+
+    local next_ = {}
+    for key, value in pairs(info) do next_[key] = value end
+    for key, value in pairs(changes) do next_[key] = value end
 
     if Player.Functions.SetCharInfo then
         Player.Functions.SetCharInfo(next_)
@@ -694,13 +707,15 @@ end
 
 ---Apply a job change to an online OR offline player. Returns false when the
 ---citizenid does not exist at all.
+---@return boolean success
+---@return table|nil errorResult the framework's own reason, when it gave one
 local function setJobFor(cid, name, grade)
     local player = playerByCid(cid)
     if player then
-        player.Functions.SetJob(name, grade)
-        return true
+        local ok, err = player.Functions.SetJob(name, grade)
+        return ok == true, err
     end
-    return setOfflineJob(cid, name, grade)
+    return setOfflineJob(cid, name, grade), nil
 end
 
 ---Set an employee's grade (online via the core, offline via the offline
@@ -708,11 +723,12 @@ end
 ---@param cid string
 ---@param job string
 ---@param grade number
----@return boolean
+---@return boolean success
+---@return table|nil errorResult `{ code, message }` when the framework refused
 function Framework.Server.SetJobGrade(cid, job, grade)
-    local ok = setJobFor(cid, job, tonumber(grade) or 0)
+    local ok, err = setJobFor(cid, job, tonumber(grade) or 0)
     if ok then employeeCache[job] = nil end
-    return ok
+    return ok, err
 end
 
 ---Fire an employee from a job (falls back to unemployed).
@@ -728,6 +744,54 @@ function Framework.Server.FireFromJob(cid, job)
     local ok = setJobFor(cid, 'unemployed', lowest)
     if ok then employeeCache[job] = nil end
     return ok
+end
+
+---Removes everyone from a job. Call this before deleting the job itself.
+---@param name string
+---@return boolean
+function Framework.Server.ReleaseJobMembers(name)
+    if type(name) ~= 'string' or name == '' or name == 'unemployed' then return false end
+
+    employeeCache[name] = nil
+
+    if isQbox then
+        for _, player in pairs(onlinePlayers() or {}) do
+            local data = player and player.PlayerData
+            if data and data.jobs and data.jobs[name] ~= nil then
+                pcall(function() exports.qbx_core:RemovePlayerFromJob(data.citizenid, name) end)
+            end
+        end
+
+        local ok = pcall(dbQuery, 'DELETE FROM `player_groups` WHERE `type` = ? AND `group` = ?', { 'job', name })
+        return ok
+    end
+
+    if not QBCore then return false end
+
+    for _, player in pairs(onlinePlayers() or {}) do
+        local job = player and player.PlayerData and player.PlayerData.job
+        if type(job) == 'table' and job.name == name then
+            player.Functions.SetJob('unemployed', 0)
+        end
+    end
+    return true
+end
+
+---Job memberships pointing at a job the framework no longer knows.
+---@return { cid: string, job: string, grade: number }[]
+function Framework.Server.GetOrphanJobMembers()
+    if not isQbox then return {} end
+
+    local known = Framework.Server.GetJobs() or {}
+    local rows = dbQuery('SELECT `citizenid`, `group`, `grade` FROM `player_groups` WHERE `type` = ?', { 'job' })
+
+    local out = {}
+    for _, row in ipairs(rows or {}) do
+        if row.group and not known[row.group] then
+            out[#out + 1] = { cid = row.citizenid, job = row.group, grade = tonumber(row.grade) or 0 }
+        end
+    end
+    return out
 end
 
 --------------------------------------------------------------------------------

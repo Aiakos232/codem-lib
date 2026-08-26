@@ -42,6 +42,8 @@ function Framework.Server.GetName(src)
     return GetPlayerName(src) or ("Player %d"):format(src)
 end
 
+
+
 function Framework.Server.GetPlayerJob(src)
     local xPlayer = Framework.Server.GetPlayer(src)
     if not xPlayer or not xPlayer.job then return nil end
@@ -338,7 +340,7 @@ function Framework.Server.GetJobEmployees(job)
     for _, row in ipairs(dbJobEmployees(job)) do
         local live = online[row.cid]
         if live == nil then
-            out[#out + 1] = row -- offline: DB is the truth
+            out[#out + 1] = row  -- offline: DB is the truth
         elseif live then
             out[#out + 1] = live -- online, same job: live data wins
         end
@@ -364,65 +366,17 @@ function Framework.Server.GetJobGrades(job)
     return out
 end
 
----Set an employee's grade (online via xPlayer, offline via the users table).
----@param cid string identifier
----@param job string
----@param grade number
----@return boolean
-function Framework.Server.SetJobGrade(cid, job, grade)
-    grade = tonumber(grade) or 0
-    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
-    if xPlayer then
-        xPlayer.setJob(job, grade)
-    else
-        dbUpdate(
-            'UPDATE users SET job = ?, job_grade = ? WHERE identifier = ?',
-            { job, grade, cid }
-        )
+local function playerByCid(cid)
+    local function get(c)
+        if isQbox then
+            return exports.qbx_core:GetPlayerByCitizenId(c)
+        end
+        return QBCore.Functions.GetPlayerByCitizenId(c)
     end
-    employeeCache[job] = nil
-    return true
+    local player = get(cid)
+    if not player and tonumber(cid) then
+        player = get(tonumber(cid))
+    end
+    return player
 end
 
----Fire an employee from a job (falls back to unemployed).
----@param cid string identifier
----@param job string
----@return boolean
-function Framework.Server.FireFromJob(cid, job)
-    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
-    if xPlayer then
-        xPlayer.setJob('unemployed', 0)
-    else
-        dbUpdate(
-            'UPDATE users SET job = "unemployed", job_grade = 0 WHERE identifier = ? AND job = ?',
-            { cid, job }
-        )
-    end
-    employeeCache[job] = nil
-    return true
-end
-
---------------------------------------------------------------------------------
--- Permissions
---------------------------------------------------------------------------------
-
----True if the player's ESX group is enabled in LibConfig.AdminPermissions, or
----the player holds the 'command' ace (txAdmin / server console admins).
----@param src number
----@return boolean
-function Framework.Server.IsAdmin(src)
-    if not src then return false end
-
-    if IsPlayerAceAllowed(src, 'command') then return true end
-
-    local xPlayer = Framework.Server.GetPlayer(src)
-    if not xPlayer then return false end
-    local grp = (xPlayer.getGroup and xPlayer.getGroup()) or xPlayer.group or 'user'
-
-    local perms = LibConfig and LibConfig.AdminPermissions
-    if type(perms) ~= 'table' or next(perms) == nil then
-        perms = { ['admin'] = true, ['superadmin'] = true }
-    end
-
-    return perms[grp] == true
-end

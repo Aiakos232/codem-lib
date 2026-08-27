@@ -278,8 +278,28 @@ local function dbUpdate(sql, params)
     return Citizen.Await(p)
 end
 
--- users.job is a plain column (no JSON parse); the TTL cache still avoids
--- rescanning big tables on every panel refresh.
+function Framework.Server.GetCharacterNames(identifiers)
+    if type(identifiers) ~= 'table' or #identifiers == 0 then return {} end
+
+    local placeholders = {}
+    for index = 1, #identifiers do placeholders[index] = '?' end
+
+    local rows = dbQuery(
+        ('SELECT `identifier`, `firstname`, `lastname` FROM `users` WHERE `identifier` IN (%s)')
+            :format(table.concat(placeholders, ',')),
+        identifiers
+    ) or {}
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        if row.identifier and row.firstname then
+            local name = ('%s %s'):format(row.firstname, row.lastname or ''):gsub('%s+$', '')
+            if name ~= '' then out[row.identifier] = name end
+        end
+    end
+    return out
+end
+
 local employeeCache = {} -- [job] = { at = ms, rows = table }
 local EMPLOYEE_CACHE_MS = 30000
 

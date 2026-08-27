@@ -492,6 +492,31 @@ local function dbQuery(sql, params)
     return Citizen.Await(p)
 end
 
+function Framework.Server.GetCharacterNames(licenses)
+    if type(licenses) ~= 'table' or #licenses == 0 then return {} end
+
+    local placeholders = {}
+    for index = 1, #licenses do placeholders[index] = '?' end
+
+    local rows = dbQuery(
+        ('SELECT `license`, `charinfo` FROM `players` WHERE `license` IN (%s) ORDER BY `last_updated` DESC')
+            :format(table.concat(placeholders, ',')),
+        licenses
+    ) or {}
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        if row.license and not out[row.license] then
+            local ok, info = pcall(json.decode, row.charinfo)
+            if ok and type(info) == 'table' and info.firstname then
+                local name = ('%s %s'):format(info.firstname, info.lastname or ''):gsub('%s+$', '')
+                if name ~= '' then out[row.license] = name end
+            end
+        end
+    end
+    return out
+end
+
 -- The players table has no index on the JSON job column, so every lookup is a
 -- full scan. Two mitigations for big tables: a LIKE prefilter so MySQL only
 -- JSON-parses candidate rows, and a short TTL cache so repeated panel opens

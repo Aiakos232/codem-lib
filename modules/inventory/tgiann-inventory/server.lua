@@ -79,19 +79,20 @@ Inventory.getItemSlot = function(playerId, slot)
             break
         end
     end
-    return itemData and {name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.info or {}} or nil
+    return itemData and
+        { name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.info or {} } or nil
 end
 
 Inventory.createShop = function(shopName, data)
     while GetResourceState('tgiann-inventory') ~= 'started' do
         Citizen.Wait(100)
     end
-    
+
     for i = 1, #data.inventory, 1 do
         if not data.inventory[i].amount then
             data.inventory[i].amount = 9999
         end
-        
+
         if not data.inventory[i].slot then
             data.inventory[i].slot = i
         end
@@ -107,7 +108,7 @@ end
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'stash' then
         if data.owner then
-            exports['tgiann-inventory']:OpenInventory(source, "stash", data.id..'_'..data.owner)
+            exports['tgiann-inventory']:OpenInventory(source, "stash", data.id .. '_' .. data.owner)
         else
             exports['tgiann-inventory']:OpenInventory(source, "stash", data)
         end
@@ -142,11 +143,40 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
     return true
 end
 
----tgiann stashes open server-side.
+---tgiann stashes open server-side. The size travels with the open call
+---(`maxweight`/`slots` — tgiann-core passes the same keys). tgiann locks a
+---registered stash's capacity at first registration and ignores the data
+---param afterwards, so when the stash is already loaded push the new size
+---straight into it (vland-stashhouse does the same via UpdateInventoryData).
 Inventory.openStashServer = function(src, stashId, invData)
-    exports['tgiann-inventory']:OpenInventory(src, 'stash', stashId, invData)
+    local data
+    if type(invData) == 'table' then
+        data = {
+            maxweight = invData.maxweight or invData.maxWeight or invData.weight,
+            slots     = invData.slots,
+            label     = invData.label,
+        }
+        local ok, inv = pcall(function()
+            return exports['tgiann-inventory']:GetInventory(stashId, 'stash')
+        end)
+        if ok and inv and inv.Functions and inv.Functions.UpdateInventoryData
+            and (data.maxweight or data.slots) then
+            inv.Functions.UpdateInventoryData({
+                MaxWeight = data.maxweight,
+                MaxSlots  = data.slots,
+            })
+        end
+    end
+    exports['tgiann-inventory']:OpenInventory(src, 'stash', stashId, data)
     return true
 end
+
+RegisterNetEvent('codem-lib:inventory:openStash', function(stashId, invData)
+    local src = source
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return end
+    if invData ~= nil and type(invData) ~= 'table' then invData = nil end
+    Inventory.openStashServer(src, stashId, invData)
+end)
 
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>
 --Item metadata comes from the framework's shared table; only the picture
@@ -163,19 +193,25 @@ end
 
 --@param stashId: string|number
 --@return items: table or nil when the stash is unknown
+--tgiann has no GetStashItems export; stashes are "secondary inventories".
 Inventory.stashItems = function(stashId)
-    local inv = exports['tgiann-inventory']:GetStashItems(stashId)
-    if type(inv) ~= 'table' then return nil end
-    -- Sağlayıcıya göre ya doğrudan liste ya da `items` alanı dönüyor.
-    return inv.items or inv
+    local ok, items = pcall(function()
+        return exports['tgiann-inventory']:GetSecondaryInventoryItems('stash', stashId)
+    end)
+    if not ok or type(items) ~= 'table' then return nil end
+    return items
 end
 
---Stash items in and out through tgiann's own stash exports.
+--Stash items in and out through tgiann's secondary-inventory exports.
 Inventory.moveStash = function(fromId, toId)
     local tg = exports['tgiann-inventory']
     return LibMoveStashWith(fromId, toId, {
-        items = function(id) return tg:GetStashItems(id) end,
-        add = function(id, name, count, meta) return tg:AddItemToStash(id, name, count, nil, meta) ~= false end,
-        remove = function(id, name, count, _, slot) tg:RemoveItemFromStash(id, name, count, slot) end,
+        items = function(id) return Inventory.stashItems(id) end,
+        add = function(id, name, count, meta)
+            return tg:AddItemToSecondaryInventory('stash', id, name, count, nil, meta) ~= false
+        end,
+        remove = function(id, name, count, meta, slot)
+            tg:RemoveItemFromSecondaryInventory('stash', id, name, count, slot, meta)
+        end,
     })
 end

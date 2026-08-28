@@ -25,8 +25,9 @@ Inventory.getItemData = function(itemName)
             image = LibItemImage('nui://inventory_images/images/', itemName, info)
         }
 end
----tgiann stashes are opened server-side; the caller must route through its
----own (validated) server event and call OpenStashServer there.
+---tgiann stashes open server-side; hand the id and size over and let the
+---server call OpenInventory. Returns true: handled.
 Inventory.openStash = function(stashId, invData)
-    return false
+    TriggerServerEvent('codem-lib:inventory:openStash', stashId, invData)
+    return true
 end

@@ -313,8 +313,15 @@ function Framework.Server.CreateGang(name, gang)
     local payload = { label = gang.label or name, grades = grades }
 
     if isQbox then
-        local ok = exports.qbx_core:CreateGang(name, payload, false)
-        return ok ~= false
+        local ok = pcall(function()
+            exports.qbx_core:CreateGangs({ [name] = payload }, false)
+        end)
+        if ok then return true end
+
+        local fine, result = pcall(function()
+            return exports.qbx_core:CreateGang(name, payload, false)
+        end)
+        return fine and result ~= false
     end
     if QBCore and QBCore.Functions.AddGang then
         return QBCore.Functions.AddGang(name, payload) ~= false

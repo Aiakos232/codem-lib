@@ -78,6 +78,25 @@ if IsDuplicityVersion() then
         Provider = function() return exports[LIB]:GetBillingProvider() end,
     }
 
+    CodemLib.Phone = {
+        ---Number the player's phone is actually using (falls back to charinfo).
+        ---@param src number player server id
+        ---@return string|nil
+        Get = function(src) return exports[LIB]:GetPhoneNumber(src) end,
+        ---Change the number in the phone resource and mirror it to the framework.
+        ---@param src number player server id
+        ---@param number string|number
+        ---@return { ok: boolean, error: string|nil } error: offline | invalid_number | number_taken | no_phone | no_identifier | provider_error | unsupported
+        Set = function(src, number) return exports[LIB]:SetPhoneNumber(src, number) end,
+        ---@param number string
+        ---@return boolean|nil nil = the provider cannot tell
+        Exists = function(number) return exports[LIB]:PhoneNumberExists(number) end,
+        ---@return string|nil a free number
+        Generate = function() return exports[LIB]:GeneratePhoneNumber() end,
+        ---@return string active provider name ('framework' when no phone resource runs)
+        Provider = function() return exports[LIB]:GetPhoneProvider() end,
+    }
+
     CodemLib.Medical = {
         ---Revive a downed player through the server's ambulance script.
         ---The client-side resurrection stays with the caller: this only clears

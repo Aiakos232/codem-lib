@@ -42,6 +42,25 @@ LibConfig.Billing = {
     maxDistance = 0,
 }
 
+-- Phone number provider (reading / changing a character's number).
+-- Supported: 'codem-phone' | 'lb-phone' | 'qs-smartphone' | 'qs-smartphone-pro'
+-- | 'cylex_phone' | '17mov_Phone' | 'framework' (charinfo.phone / users.phone_number only) | 'auto'
+--   minDigits / maxDigits : accepted digit count (spaces, dashes and parentheses are kept as typed)
+--   generateDigits        : length used when the provider cannot generate one itself
+--   codemTable / codemNumberColumn / codemIdentifierColumn :
+--                           where codem-phone keeps the number; used only for changes,
+--                           reads go through its exports.
+LibConfig.Phone = {
+    provider       = 'auto',
+    minDigits      = 3,
+    maxDigits      = 15,
+    generateDigits = 7,
+
+    codemTable            = 'codem_mphone_data',
+    codemNumberColumn     = 'phone_number',
+    codemIdentifierColumn = 'identifier',
+}
+
 
 -- Weather / time sync provider.
 -- Supported: 'Renewed-Weathersync' | 'qbx_weathersync' | 'qb-weathersync'

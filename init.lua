@@ -130,6 +130,17 @@ if IsDuplicityVersion() then
         Provider = function() return exports[LIB]:GetDoorlockProvider() end,
     }
 
+    CodemLib.Dispatch = {
+        Provider = function() return exports[LIB]:GetDispatchProvider() end,
+        ---@param src number|nil source that triggered the alert (0 = system)
+        ---@param jobs string|string[] job names to alert
+        ---@param coords vector3|table
+        ---@param data { title?: string, description?: string, code?: string, length?: number, sound?: table }
+        ---@param blip? { sprite?: number, colour?: number, scale?: number, flash?: boolean, length?: number, text?: string }
+        ---@param flash? boolean
+        Send = function(src, jobs, coords, data, blip, flash) return exports[LIB]:SendDispatch(src, jobs, coords, data, blip, flash) end,
+    }
+
     CodemLib.Garage = {
         Provider = function() return exports[LIB]:GetGarageProvider() end,
         Enabled = function() return exports[LIB]:GetGarageProvider() ~= 'none' end,

@@ -108,6 +108,23 @@ CreateThread(function()
         end
     end
 
+    local oxUp = GetResourceState('ox_lib') == 'started'
+
+    local weather = detect(LibConfig.Weather and LibConfig.Weather.provider, {
+        'Renewed-Weathersync', 'qbx_weathersync', 'qb-weathersync', 'cd_easytime', 'av_sync', 'av_weather',
+        'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync',
+    }, 'native')
+    if LibConfig.Weather and LibConfig.Weather.provider == false then weather = 'native' end
+
+    local dispatch = detect(LibConfig.Dispatch and LibConfig.Dispatch.provider, {
+        'ps-dispatch', 'cd_dispatch', 'codem-dispatch', 'core_dispatch', 'aty_dispatch', 'rcore_dispatch',
+        'tk_dispatch', 'lb-tablet', 'origen_police', 'tgiann-policealert',
+    }, 'native')
+
+    local textui = detect(LibConfig.TextUI and LibConfig.TextUI.provider, { 'okokTextUI', 'cd_drawtextui' }, oxUp and 'ox' or 'none')
+    local progress = detect(LibConfig.Progress and LibConfig.Progress.provider, { 'progressbar' }, oxUp and 'ox' or 'none')
+    local skillcheck = detect(LibConfig.SkillCheck and LibConfig.SkillCheck.provider, { 'ps-ui' }, oxUp and 'ox' or 'none')
+
     print(table.concat({
         '^2[codem-lib]^0 v' .. (GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?') .. ' — providers:',
         '  framework   : ^3' .. framework .. '^0',
@@ -123,5 +140,10 @@ CreateThread(function()
         '  doorlock    : ^3' .. doorlock .. '^0',
         '  garage      : ^3' .. garage .. '^0',
         '  wardrobe    : ^3' .. wardrobe .. '^0',
+        '  weather     : ^3' .. weather .. '^0',
+        '  dispatch    : ^3' .. dispatch .. '^0',
+        '  textui      : ^3' .. textui .. '^0',
+        '  progress    : ^3' .. progress .. '^0',
+        '  skillcheck  : ^3' .. skillcheck .. '^0',
     }, '\n'))
 end)

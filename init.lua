@@ -296,6 +296,15 @@ else
         Open = function() return exports[LIB]:OpenWardrobe() end,
     }
 
+    CodemLib.Weather = {
+        ---@param enabled boolean pause weathersync for this player and force local weather/time (interiors)
+        ---@param opts? { weather?: string, hour?: number, minute?: number }
+        ---@return boolean
+        LocalOverride = function(enabled, opts) return exports[LIB]:SetLocalWeatherOverride(enabled, opts) end,
+        ---@return { weather: string, hour: number, minute: number }|nil
+        LocalState = function() return exports[LIB]:GetLocalWeatherOverride() end,
+    }
+
     ---@param message string
     ---@param nType? string 'info'|'success'|'error'|'warning'
     ---@param duration? number ms

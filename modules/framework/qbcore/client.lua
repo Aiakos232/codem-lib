@@ -28,6 +28,25 @@ Framework.Client = Framework.Client or {}
 -- Player data
 --------------------------------------------------------------------------------
 
+local loadedCallbacks = {}
+
+---@return boolean
+function Framework.Client.IsLoaded()
+    return LocalPlayer.state.isLoggedIn == true
+end
+
+---Runs cb each time the player finishes loading (character selected / spawned).
+---If the player is already loaded when registered, cb runs immediately.
+---@param cb fun()
+function Framework.Client.OnPlayerLoaded(cb)
+    loadedCallbacks[#loadedCallbacks + 1] = cb
+    if Framework.Client.IsLoaded() then CreateThread(cb) end
+end
+
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    for _, cb in ipairs(loadedCallbacks) do CreateThread(cb) end
+end)
+
 ---@return table
 function Framework.Client.GetPlayerData()
     if isQbox then

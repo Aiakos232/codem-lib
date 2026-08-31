@@ -23,6 +23,25 @@ local ESX = exports['es_extended']:getSharedObject()
 Framework = Framework or {}
 Framework.Client = Framework.Client or {}
 
+local loadedCallbacks = {}
+
+---@return boolean
+function Framework.Client.IsLoaded()
+    return ESX.IsPlayerLoaded() == true
+end
+
+---Runs cb each time the player finishes loading (character selected / spawned).
+---If the player is already loaded when registered, cb runs immediately.
+---@param cb fun()
+function Framework.Client.OnPlayerLoaded(cb)
+    loadedCallbacks[#loadedCallbacks + 1] = cb
+    if Framework.Client.IsLoaded() then CreateThread(cb) end
+end
+
+RegisterNetEvent('esx:playerLoaded', function()
+    for _, cb in ipairs(loadedCallbacks) do CreateThread(cb) end
+end)
+
 function Framework.Client.GetPlayerData()
     return ESX.GetPlayerData()
 end

@@ -16,12 +16,20 @@ end
 
 -- v = vehicle entity, n = fuel amount (0-100). Providers missing here are
 -- server-side only; the client export forwards to the server for them.
+-- `get` reads the provider's OWN idea of the level. That matters: ox_fuel
+-- keeps the truth in a statebag and only syncs the native while somebody is
+-- driving, so GetVehicleFuelLevel on a parked car can be stale — reading the
+-- native and writing it back through Set would visibly change the tank.
 local PROVIDERS = {
     ['ox_fuel'] = {
         set = function(v, n)
             SetVehicleFuelLevel(v, n + 0.0)
             Entity(v).state.fuel = n
             return true
+        end,
+        get = function(v)
+            local f = Entity(v).state.fuel
+            return type(f) == 'number' and f or GetVehicleFuelLevel(v)
         end,
     },
 
@@ -71,6 +79,21 @@ local function setFuel(vehicle, amount)
 end
 
 exports('SetFuel', setFuel)
+
+---The fuel level as the active provider understands it; falls back to the
+---native reading when the provider has no notion of its own.
+local function getFuel(vehicle)
+    if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then return 0 end
+
+    local p = PROVIDERS[provider()]
+    if p and p.get then
+        local ok, level = pcall(p.get, vehicle)
+        if ok and type(level) == 'number' then return level end
+    end
+    return GetVehicleFuelLevel(vehicle)
+end
+
+exports('GetFuel', getFuel)
 
 -- The server forwards sets here for client-side providers.
 RegisterNetEvent('codem-lib:fuel:set', function(netId, amount)

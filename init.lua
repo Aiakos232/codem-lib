@@ -275,6 +275,9 @@ else
         ---@param vehicle number vehicle entity
         ---@param amount number fuel level 0-100
         Set = function(vehicle, amount) return exports[LIB]:SetFuel(vehicle, amount) end,
+        ---The level as the fuel provider itself reports it (0-100).
+        ---@param vehicle number vehicle entity
+        Get = function(vehicle) return exports[LIB]:GetFuel(vehicle) end,
     }
 
     CodemLib.Doorlock = {

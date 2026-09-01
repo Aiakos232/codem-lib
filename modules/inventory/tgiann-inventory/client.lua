@@ -31,3 +31,8 @@ Inventory.openStash = function(stashId, invData)
     TriggerServerEvent('codem-lib:inventory:openStash', stashId, invData)
     return true
 end
+---Register display labels for custom metadata keys, e.g.
+---{ CodemPhoneName = 'Phone Name' }. Cosmetic; tgiann shows them on the item.
+Inventory.displayMetadata = function(map)
+    exports['tgiann-inventory']:DisplayMetadata(map)
+end

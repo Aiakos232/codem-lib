@@ -28,3 +28,8 @@ Inventory.openStash = function(stashId, invData)
     exports.ox_inventory:openInventory('stash', stashId)
     return true
 end
+---Register display labels for custom metadata keys, e.g.
+---{ CodemPhoneName = 'Phone Name' }. Cosmetic; ox shows them in the tooltip.
+Inventory.displayMetadata = function(map)
+    exports.ox_inventory:displayMetadata(map)
+end

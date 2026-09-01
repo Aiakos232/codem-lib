@@ -28,3 +28,18 @@ exports('GetItemCount', function(itemName, metadata) return call('getItemCount',
 exports('GetItemData', function(itemName) return call('getItemData', itemName) end)
 exports('GetPlayerItems', function() return call('getPlayerItems') end)
 exports('OpenStash', function(stashId, invData) return call('openStash', stashId, invData) end)
+
+--[[
+    Register display labels for custom item metadata keys, e.g.
+    { CodemMotelName = 'Motel', CodemRoomName = 'Room' }.
+
+    Deliberately NOT through call(): the feature is cosmetic and only ox and
+    tgiann have it, so a provider without it is a silent no-op rather than a
+    boot-time warning on every other inventory.
+]]
+exports('DisplayMetadata', function(map)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider.displayMetadata then return false end
+    return pcall(provider.displayMetadata, map)
+end)

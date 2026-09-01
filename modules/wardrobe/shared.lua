@@ -1,6 +1,7 @@
 local CANDIDATES = {
     'illenium-appearance',
     'fivem-appearance',
+    'tgiann-clothing',
     'qb-clothing',
     'rcore_clothing',
     'esx_skin',

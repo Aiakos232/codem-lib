@@ -22,6 +22,12 @@ local OPENERS = {
         TriggerEvent('fivem-appearance:client:openOutfitMenu')
         return true
     end,
+    ['tgiann-clothing'] = function()
+        if not started('tgiann-clothing') then return false end
+        if tryExport('tgiann-clothing', 'OpenOutfitStash') then return true end
+        TriggerEvent('qb-clothing:client:openOutfitMenu')
+        return true
+    end,
     ['qb-clothing'] = function()
         if not started('qb-clothing') then return false end
         TriggerEvent('qb-clothing:client:openOutfitMenu')

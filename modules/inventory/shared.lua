@@ -10,7 +10,7 @@ LibInventoryProviders = LibInventoryProviders or {}
 
 -- 'auto' detection order — first running resource wins.
 local CANDIDATES = {
-    'ox_inventory', 'qb-inventory', 'ps-inventory', 'qs-inventory',
+    'codem-inventoryv2', 'ox_inventory', 'qb-inventory', 'ps-inventory', 'qs-inventory',
     'codem-inventory', 'core_inventory', 'tgiann-inventory', 'origen_inventory',
     'ak47_inventory', 'jaksam_inventory', 'jpr-inventory', 'S-inventory',
 }

@@ -72,7 +72,7 @@ LibConfig.Weather = {
 }
 
 -- Inventory provider.
--- Supported: 'ox_inventory' | 'qb-inventory' | 'ps-inventory' | 'qs-inventory'
+-- Supported: 'codem-inventoryv2' | 'ox_inventory' | 'qb-inventory' | 'ps-inventory' | 'qs-inventory'
 -- | 'codem-inventory' | 'core_inventory' | 'tgiann-inventory' | 'origen_inventory'
 -- | 'ak47_inventory' | 'jaksam_inventory' | 'jpr-inventory' | 'S-inventory' | 'auto'
 LibConfig.Inventory = {

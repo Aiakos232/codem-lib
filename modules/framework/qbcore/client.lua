@@ -132,5 +132,9 @@ end
 function Framework.Client.GetPlate(vehicle)
     if not vehicle or vehicle == 0 then return '' end
     local plate = GetVehicleNumberPlateText(vehicle)
-    return plate and plate:gsub('%s+$', '') or ''
+    -- Trim both ends, not just the tail: the game pads plates to 8 characters
+    -- and a leading space is a real character in a SQL comparison, so an
+    -- untrimmed head would key the same car apart from the framework's own
+    -- vehicle table (qbx.getVehiclePlate / ESX trim both ends too).
+    return plate and (plate:gsub('^%s+', ''):gsub('%s+$', '')) or ''
 end

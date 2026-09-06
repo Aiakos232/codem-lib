@@ -96,14 +96,15 @@ CreateThread(function()
     end
 
     local wardrobe = detect(LibConfig.Wardrobe and LibConfig.Wardrobe.provider, {
-        'illenium-appearance', 'fivem-appearance', 'qb-clothing',
-        'rcore_clothing', 'esx_skin', 'skinchanger',
+        'codem-clothing', 'illenium-appearance', 'fivem-appearance', 'qs-appearance', '4bit_appearance',
+        'qf_skinmenu', 'crm-appearance', 'tgiann-clothing', 'rcore_clothing', '0r-clothing', 'qb-clothing',
+        'esx_skin', 'skinchanger',
     }, 'none')
     if LibConfig.Wardrobe and (LibConfig.Wardrobe.provider == 'none' or LibConfig.Wardrobe.provider == false) then
         wardrobe = 'none'
     elseif wardrobe == 'none' then
         local cfg = LibConfig.Wardrobe or {}
-        if type(cfg.open) == 'function' or (type(cfg.event) == 'string' and cfg.event ~= '') then
+        if type(cfg.open) == 'function' or (type(cfg.event) == 'string' and cfg.event ~= '') or type(cfg.setClothing) == 'function' then
             wardrobe = 'custom'
         end
     end

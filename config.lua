@@ -160,6 +160,22 @@ LibConfig.Garage = {
     provider = 'auto',
 }
 
+-- Appearance / wardrobe provider (outfit menu, and the clothing bridge the
+-- inventory's clothing items dress the ped through).
+-- Supported: 'codem-clothing' | 'illenium-appearance' | 'fivem-appearance'
+-- | 'qs-appearance' | '4bit_appearance' | 'qf_skinmenu' | 'crm-appearance'
+-- | 'tgiann-clothing' | 'rcore_clothing' | '0r-clothing' | 'qb-clothing'
+-- | 'esx_skin' | 'skinchanger' | 'auto' | 'none'
+--
+-- A script codem-lib does not know (all optional, client side):
+--   open          = function() end                       opens its outfit menu
+--   event         = 'my-clothing:openOutfits'            or the event that does
+--   setClothing   = function(ped, components, props) end dresses the ped through the script
+--                   components: { { component_id, drawable, texture, palette }, ... }
+--                   props:      { { prop_id, drawable, texture }, ... }  (drawable -1 = take the prop off)
+--   saveClothing  = function() return true end          saves what the ped wears now
+--   changedEvents = { 'my-clothing:skinLoaded' }         events after which the script dressed the player itself
+-- Without setClothing the ped is dressed with plain natives, without saveClothing nothing is saved.
 LibConfig.Wardrobe = {
     provider = 'auto',
 }

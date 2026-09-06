@@ -297,6 +297,19 @@ else
         Provider = function() return exports[LIB]:GetWardrobeProvider() end,
         Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
         Open = function() return exports[LIB]:OpenWardrobe() end,
+        -- Clothing bridge (modules/wardrobe/client.lua): what the ped wears,
+        -- dressing it through the appearance script, saving through the same.
+        ---@param ped? number
+        ---@return { components: table<number, {drawable:number, texture:number, palette:number}>, props: table<number, {drawable:number, texture:number}> }
+        GetClothing = function(ped) return exports[LIB]:GetPedClothing(ped) end,
+        ---@param ped? number
+        ---@param components? { component_id:number, drawable:number, texture?:number, palette?:number }[]
+        ---@param props? { prop_id:number, drawable:number, texture?:number }[] drawable -1 clears the prop
+        SetClothing = function(ped, components, props) return exports[LIB]:SetPedClothing(ped, components, props) end,
+        ---@return boolean
+        SaveClothing = function() return exports[LIB]:SavePedClothing() end,
+        -- local event fired after the appearance script dressed the player on its own
+        ChangedEvent = 'codem-lib:wardrobe:changed',
     }
 
     CodemLib.Weather = {

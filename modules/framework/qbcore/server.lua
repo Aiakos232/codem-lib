@@ -4,7 +4,7 @@
 ]]
 -- Framework selection: LibConfig.Framework (codem-lib config) wins, then the
 -- consumer's own Config.Framework, then auto-detection of the running core.
-local FW = (type(LibConfig) == 'table' and LibConfig.Framework)
+local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and LibConfig.Framework)
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
@@ -856,4 +856,114 @@ function Framework.Server.IsAdmin(src)
     end
 
     return false
+end
+
+--------------------------------------------------------------------------------
+-- Account / character session (multicharacter, spawn selectors, logout)
+--------------------------------------------------------------------------------
+
+---Account identifier the character rows are keyed by (rockstar license).
+---Qbox keys players by license2 first and falls back to license.
+---@param src number
+---@return string|nil primary
+---@return string[] all every license identifier found, primary first
+function Framework.Server.GetLicense(src)
+    local license2 = GetPlayerIdentifierByType(src, 'license2')
+    local license = GetPlayerIdentifierByType(src, 'license')
+    local all = {}
+    local order = isQbox and { license2, license } or { license, license2 }
+    for _, id in ipairs(order) do all[#all + 1] = id end
+    return all[1], all
+end
+
+---@param src number
+---@return boolean true while a character is loaded for this player
+function Framework.Server.IsLoggedIn(src)
+    return Framework.Server.GetPlayer(src) ~= nil
+end
+
+---Online player object for a character id, nil when that character is not loaded.
+---@param citizenid string
+---@return table|nil
+function Framework.Server.GetPlayerByCharacter(citizenid)
+    if isQbox then
+        return exports.qbx_core:GetPlayerByCitizenId(citizenid)
+    end
+    return QBCore.Functions.GetPlayerByCitizenId(citizenid)
+end
+
+local characterLoaded = {}
+
+---Runs cb(src) every time a character finishes loading on the server.
+---@param cb fun(src: number)
+function Framework.Server.OnCharacterLoaded(cb)
+    characterLoaded[#characterLoaded + 1] = cb
+end
+
+AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
+    local src = type(player) == 'table' and player.PlayerData and player.PlayerData.source
+    if not src then return end
+    for _, cb in ipairs(characterLoaded) do cb(src) end
+end)
+
+---Loads a character into the session. With newData and no citizenid a new
+---character row is created first ({ cid, charinfo = { firstname, ... } }).
+---@param src number
+---@param citizenid string|nil
+---@param newData table|nil
+---@return boolean
+function Framework.Server.Login(src, citizenid, newData)
+    if isQbox then
+        return exports.qbx_core:Login(src, citizenid, newData) == true
+    end
+    return QBCore.Player.Login(src, citizenid or false, newData) == true
+end
+
+---Unloads the current character (back to character selection).
+---@param src number
+function Framework.Server.Logout(src)
+    if isQbox then
+        exports.qbx_core:Logout(src)
+    else
+        QBCore.Player.Logout(src)
+    end
+end
+
+---Deletes a character through the framework (player rows + framework hooks).
+---@param src number
+---@param citizenid string
+---@return boolean handled false when the framework has no delete API and the caller owns the rows
+function Framework.Server.DeleteCharacter(src, citizenid)
+    if isQbox then
+        exports.qbx_core:DeleteCharacter(citizenid)
+    else
+        QBCore.Player.DeleteCharacter(src, citizenid)
+    end
+    return true
+end
+
+---Re-sends chat command suggestions after a character switch (qb-core only).
+---@param src number
+function Framework.Server.RefreshCommands(src)
+    if not isQbox and QBCore.Commands and QBCore.Commands.Refresh then
+        QBCore.Commands.Refresh(src)
+    end
+end
+
+---Position saved with the loaded character.
+---@param src number
+---@return table|nil { x, y, z, w }
+function Framework.Server.GetLastPosition(src)
+    local Player = Framework.Server.GetPlayer(src)
+    local pos = Player and Player.PlayerData and Player.PlayerData.position
+    if type(pos) ~= 'table' and type(pos) ~= 'vector3' and type(pos) ~= 'vector4' then return nil end
+    return { x = pos.x, y = pos.y, z = pos.z, w = pos.w or pos.heading or 0.0 }
+end
+
+---Starter items the framework hands to a new character: { { item, amount }, ... }.
+---Qbox has no shared list (qbx_idcard owns id documents), so it returns empty.
+---@return table
+function Framework.Server.GetStarterItems()
+    if isQbox then return {} end
+    return QBCore.Shared.StarterItems or {}
 end

@@ -20,7 +20,7 @@ if type(LibConfig) ~= 'table' then
     end
 end
 
-local FW = (type(LibConfig) == 'table' and LibConfig.Framework)
+local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and LibConfig.Framework)
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 
@@ -35,6 +35,11 @@ if FW == 'auto' then
 end
 
 local DIR = (FW == 'qb' or FW == 'qbox') and 'qbcore' or FW == 'esx' and 'esx' or nil
+
+-- Resolved framework name for consumers: 'qb' | 'qbox' | 'esx' | 'none'.
+CodemLib = CodemLib or {}
+CodemLib.FrameworkName = DIR and FW or 'none'
+
 if not DIR then
     print('[codem-lib] framework: no supported framework detected (qbx_core / qb-core / es_extended)')
     return

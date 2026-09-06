@@ -4,7 +4,7 @@
 ]]
 -- Framework selection: LibConfig.Framework (codem-lib config) wins, then the
 -- consumer's own Config.Framework, then auto-detection of the running core.
-local FW = (type(LibConfig) == 'table' and LibConfig.Framework)
+local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and LibConfig.Framework)
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
@@ -41,6 +41,30 @@ end
 RegisterNetEvent('esx:playerLoaded', function()
     for _, cb in ipairs(loadedCallbacks) do CreateThread(cb) end
 end)
+
+---Event the framework fires when the character is unloaded (logout / switch).
+Framework.Client.PlayerUnloadedEvent = 'esx:onPlayerLogout'
+
+local unloadedCallbacks = {}
+
+---Runs cb each time the character is unloaded (logout / character switch).
+---@param cb fun()
+function Framework.Client.OnPlayerUnloaded(cb)
+    unloadedCallbacks[#unloadedCallbacks + 1] = cb
+end
+
+RegisterNetEvent(Framework.Client.PlayerUnloadedEvent, function()
+    for _, cb in ipairs(unloadedCallbacks) do CreateThread(cb) end
+end)
+
+---Announces the spawn after a character was loaded, the way esx_multicharacter
+---does (server spawn event, loadout restore, loading screen off).
+function Framework.Client.SpawnHandshake()
+    TriggerServerEvent('esx:onPlayerSpawn')
+    TriggerEvent('esx:onPlayerSpawn')
+    TriggerEvent('esx:restoreLoadout')
+    TriggerEvent('esx:loadingScreenOff')
+end
 
 function Framework.Client.GetPlayerData()
     return ESX.GetPlayerData()

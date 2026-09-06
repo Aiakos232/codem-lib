@@ -4,7 +4,7 @@
 ]]
 -- Framework selection: LibConfig.Framework (codem-lib config) wins, then the
 -- consumer's own Config.Framework, then auto-detection of the running core.
-local FW = (type(LibConfig) == 'table' and LibConfig.Framework)
+local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and LibConfig.Framework)
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
@@ -269,15 +269,6 @@ local function dbQuery(sql, params)
     return Citizen.Await(p)
 end
 
-local function dbUpdate(sql, params)
-    if MySQL and MySQL.update and MySQL.update.await then
-        return MySQL.update.await(sql, params)
-    end
-    local p = promise.new()
-    exports.oxmysql:update(sql, params, function(res) p:resolve(res) end)
-    return Citizen.Await(p)
-end
-
 function Framework.Server.GetCharacterNames(identifiers)
     if type(identifiers) ~= 'table' or #identifiers == 0 then return {} end
 
@@ -386,17 +377,108 @@ function Framework.Server.GetJobGrades(job)
     return out
 end
 
-local function playerByCid(cid)
-    local function get(c)
-        if isQbox then
-            return exports.qbx_core:GetPlayerByCitizenId(c)
-        end
-        return QBCore.Functions.GetPlayerByCitizenId(c)
+
+--------------------------------------------------------------------------------
+-- Permissions
+--------------------------------------------------------------------------------
+
+---True if the player's ESX group is in LibConfig.AdminPermissions, or the
+---player holds the 'command' ace (txAdmin / server console admins).
+---@param src number
+---@return boolean
+function Framework.Server.IsAdmin(src)
+    if not src then return false end
+    if IsPlayerAceAllowed(src, 'command') then return true end
+
+    local perms = LibConfig and LibConfig.AdminPermissions
+    if type(perms) ~= 'table' or next(perms) == nil then
+        perms = { ['superadmin'] = true }
     end
-    local player = get(cid)
-    if not player and tonumber(cid) then
-        player = get(tonumber(cid))
-    end
-    return player
+    local xPlayer = ESX.GetPlayerFromId(src)
+    local group = xPlayer and xPlayer.getGroup and xPlayer.getGroup()
+    return group ~= nil and perms[group] == true
 end
 
+--------------------------------------------------------------------------------
+-- Account / character session (multicharacter, spawn selectors, logout)
+--------------------------------------------------------------------------------
+
+---Account identifier (rockstar license, without a character prefix).
+---@param src number
+---@return string|nil primary
+---@return string[] all
+function Framework.Server.GetLicense(src)
+    local id = ESX.GetIdentifier(src)
+    return id, id and { id } or {}
+end
+
+---@param src number
+---@return boolean true while a character is loaded for this player
+function Framework.Server.IsLoggedIn(src)
+    return ESX.GetPlayerFromId(src) ~= nil
+end
+
+---Online player object for a character identifier, nil when not loaded.
+---@param identifier string
+---@return table|nil
+function Framework.Server.GetPlayerByCharacter(identifier)
+    return ESX.GetPlayerFromIdentifier(identifier)
+end
+
+local characterLoaded = {}
+
+---Runs cb(src) every time a character finishes loading on the server.
+---@param cb fun(src: number)
+function Framework.Server.OnCharacterLoaded(cb)
+    characterLoaded[#characterLoaded + 1] = cb
+end
+
+AddEventHandler('esx:playerLoaded', function(playerId)
+    local src = tonumber(playerId)
+    if not src then return end
+    for _, cb in ipairs(characterLoaded) do cb(src) end
+end)
+
+---Loads a character into the session. ESX multicharacter convention: the slot
+---id ('char1') is handed to esx:onPlayerJoined, es_extended prefixes it to the
+---license and creates the row when newData ({ firstname, lastname, dateofbirth,
+---sex, height }) is given.
+---@param src number
+---@param slot string
+---@param newData table|nil
+---@return boolean
+function Framework.Server.Login(src, slot, newData)
+    TriggerEvent('esx:onPlayerJoined', src, slot, newData)
+    return true
+end
+
+---Unloads the current character (back to character selection).
+---@param src number
+function Framework.Server.Logout(src)
+    TriggerEvent('esx:playerLogout', src)
+end
+
+---ESX has no delete API: the caller owns the identifier rows.
+---@return boolean handled always false
+function Framework.Server.DeleteCharacter()
+    return false
+end
+
+---No command cache on ESX.
+function Framework.Server.RefreshCommands() end
+
+---Current position of the loaded character.
+---@param src number
+---@return table|nil { x, y, z, w }
+function Framework.Server.GetLastPosition(src)
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return nil end
+    local c = xPlayer.getCoords(true)
+    return c and { x = c.x, y = c.y, z = c.z, w = c.heading or 0.0 } or nil
+end
+
+---ESX hands out no starter items through the framework.
+---@return table
+function Framework.Server.GetStarterItems()
+    return {}
+end

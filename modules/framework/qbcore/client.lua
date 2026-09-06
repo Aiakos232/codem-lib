@@ -4,7 +4,7 @@
 ]]
 -- Framework selection: LibConfig.Framework (codem-lib config) wins, then the
 -- consumer's own Config.Framework, then auto-detection of the running core.
-local FW = (type(LibConfig) == 'table' and LibConfig.Framework)
+local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and LibConfig.Framework)
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
@@ -46,6 +46,28 @@ end
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     for _, cb in ipairs(loadedCallbacks) do CreateThread(cb) end
 end)
+
+---Event the framework fires when the character is unloaded (logout / switch).
+Framework.Client.PlayerUnloadedEvent = isQbox and 'qbx_core:client:playerLoggedOut' or 'QBCore:Client:OnPlayerUnload'
+
+local unloadedCallbacks = {}
+
+---Runs cb each time the character is unloaded (logout / character switch).
+---@param cb fun()
+function Framework.Client.OnPlayerUnloaded(cb)
+    unloadedCallbacks[#unloadedCallbacks + 1] = cb
+end
+
+RegisterNetEvent(Framework.Client.PlayerUnloadedEvent, function()
+    for _, cb in ipairs(unloadedCallbacks) do CreateThread(cb) end
+end)
+
+---Announces the spawn after a character was loaded, the way the framework's
+---own multicharacter does. Fires the OnPlayerLoaded callbacks as a side effect.
+function Framework.Client.SpawnHandshake()
+    TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
+    TriggerEvent('QBCore:Client:OnPlayerLoaded')
+end
 
 ---@return table
 function Framework.Client.GetPlayerData()

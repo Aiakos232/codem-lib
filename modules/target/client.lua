@@ -79,6 +79,12 @@ local qb_target = exports['qb-target']
 -- remember every name -> label mapping we register.
 local namesToLabels = {}
 
+-- `name` is optional in the ox contract, so the map above cannot answer
+-- "remove everything" — a nameless option was never a key in it. Keep the
+-- labels themselves as well, deduplicated, for the no-names removal calls.
+local allLabels = {}
+local seenLabels = {}
+
 local function generateUUID()
     local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
     return (template:gsub('[xy]', function(c)
@@ -113,9 +119,14 @@ end
 ---Collect the qb labels registered for the given ox option name(s).
 local function labelsFor(optionNames)
     local labels = {}
-    if type(optionNames) == 'string' then
+    if optionNames == nil then
+        -- ox removes every option on the target when no name is given. qb wants
+        -- an explicit label list; labels it does not find on that target are a
+        -- no-op there, so handing it everything we registered is safe.
+        return allLabels
+    elseif type(optionNames) == 'string' then
         if namesToLabels[optionNames] then labels[#labels + 1] = namesToLabels[optionNames] end
-    else
+    elseif type(optionNames) == 'table' then
         for i = 1, #optionNames do
             if namesToLabels[optionNames[i]] then labels[#labels + 1] = namesToLabels[optionNames[i]] end
         end
@@ -178,7 +189,13 @@ local function convertOptionsFromOxTarget(payload)
     for i = 1, #payload.options do
         local o = payload.options[i]
 
-        namesToLabels[o.name] = o.label
+        -- `name` is optional in the ox contract; only options that carry one
+        -- can be removed by name later. The label is remembered either way.
+        if o.name then namesToLabels[o.name] = o.label end
+        if o.label and not seenLabels[o.label] then
+            seenLabels[o.label] = true
+            allLabels[#allLabels + 1] = o.label
+        end
 
         if o.groups then
             local jobs = convertToArray(o.groups)

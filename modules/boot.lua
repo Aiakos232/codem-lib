@@ -13,10 +13,18 @@ local function detect(cfg, candidates, fallback)
     return fallback or 'none'
 end
 
-CreateThread(function()
-    -- Let the rest of the server finish starting so auto-detection is accurate.
-    Wait(2000)
+--- How many resources are running right now.
+local function startedCount()
+    local n = 0
+    for i = 0, GetNumResources() - 1 do
+        if GetResourceState(GetResourceByFindIndex(i)) == 'started' then n = n + 1 end
+    end
+    return n
+end
 
+--- The provider table as ordered { name, value } rows. Providers are looked
+--- up again on every call anyway; this is only what the console shows.
+local function summary()
     local framework = detect(LibConfig.Framework, { 'qbx_core', 'qb-core', 'es_extended' })
     if framework == 'qbx_core' then framework = 'qbox'
     elseif framework == 'qb-core' then framework = 'qb'
@@ -126,25 +134,87 @@ CreateThread(function()
     local progress = detect(LibConfig.Progress and LibConfig.Progress.provider, { 'progressbar' }, oxUp and 'ox' or 'none')
     local skillcheck = detect(LibConfig.SkillCheck and LibConfig.SkillCheck.provider, { 'ps-ui' }, oxUp and 'ox' or 'none')
 
-    print(table.concat({
-        '^2[codem-lib]^0 v' .. (GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?') .. ' — providers:',
-        '  framework   : ^3' .. framework .. '^0',
-        '  inventory   : ^3' .. inventory .. '^0',
-        '  society     : ^3' .. society .. '^0',
-        '  vehiclekeys : ^3' .. vehiclekeys .. '^0',
-        '  fuel        : ^3' .. fuel .. '^0',
-        '  target      : ^3' .. target .. '^0',
-        '  medical     : ^3' .. medical .. '^0',
-        '  notify      : ^3' .. notify .. '^0',
-        '  billing     : ^3' .. billing .. '^0',
-        '  phone       : ^3' .. phone .. '^0',
-        '  doorlock    : ^3' .. doorlock .. '^0',
-        '  garage      : ^3' .. garage .. '^0',
-        '  wardrobe    : ^3' .. wardrobe .. '^0',
-        '  weather     : ^3' .. weather .. '^0',
-        '  dispatch    : ^3' .. dispatch .. '^0',
-        '  textui      : ^3' .. textui .. '^0',
-        '  progress    : ^3' .. progress .. '^0',
-        '  skillcheck  : ^3' .. skillcheck .. '^0',
-    }, '\n'))
+    return {
+        { 'framework', framework },
+        { 'inventory', inventory },
+        { 'society', society },
+        { 'vehiclekeys', vehiclekeys },
+        { 'fuel', fuel },
+        { 'target', target },
+        { 'medical', medical },
+        { 'notify', notify },
+        { 'billing', billing },
+        { 'phone', phone },
+        { 'doorlock', doorlock },
+        { 'garage', garage },
+        { 'wardrobe', wardrobe },
+        { 'weather', weather },
+        { 'dispatch', dispatch },
+        { 'textui', textui },
+        { 'progress', progress },
+        { 'skillcheck', skillcheck },
+    }
+end
+
+-- codem-lib starts before the scripts it bridges, and a `restart codem-lib`
+-- stops the ones that depend on it until they are started again. So the table
+-- waits until no resource has started for a while, prints, and prints again
+-- whenever a later start changes what it says.
+local printed = nil   -- name -> value of the last table shown
+
+local function pad(name)
+    return name .. string.rep(' ', 12 - #name)
+end
+
+local function settleAndPrint()
+    local last, quietFor, waited = startedCount(), 0, 0
+    while quietFor < 3000 do
+        Wait(500)
+        waited = waited + 500
+        local now = startedCount()
+        if now ~= last then last, quietFor = now, 0 else quietFor = quietFor + 500 end
+        -- a server that keeps starting things forever still gets its table
+        if waited >= 60000 then break end
+    end
+    local rows = summary()
+    local version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?'
+    if not printed then
+        -- the whole table once
+        local out = { '^2[codem-lib]^0 v' .. version .. ' — providers:' }
+        printed = {}
+        for _, row in ipairs(rows) do
+            out[#out + 1] = '  ' .. pad(row[1]) .. ': ^3' .. row[2] .. '^0'
+            printed[row[1]] = row[2]
+        end
+        print(table.concat(out, '\n'))
+        return
+    end
+    -- later only what a newly started resource changed
+    local out = {}
+    for _, row in ipairs(rows) do
+        if printed[row[1]] ~= row[2] then
+            out[#out + 1] = '  ' .. pad(row[1]) .. ': ^3' .. tostring(printed[row[1]]) .. '^0 -> ^3' .. row[2] .. '^0'
+            printed[row[1]] = row[2]
+        end
+    end
+    if #out > 0 then
+        print('^2[codem-lib]^0 providers changed:\n' .. table.concat(out, '\n'))
+    end
+end
+
+local settling = false
+
+local function scheduleSummary()
+    if settling then return end
+    settling = true
+    CreateThread(function()
+        settleAndPrint()
+        settling = false
+    end)
+end
+
+scheduleSummary()
+
+AddEventHandler('onResourceStart', function(resource)
+    if resource ~= GetCurrentResourceName() then scheduleSummary() end
 end)

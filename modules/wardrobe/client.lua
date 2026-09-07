@@ -167,6 +167,21 @@ local function getClothing(ped)
             texture = GetPedPropTextureIndex(ped, id),
         }
     end
+    -- codem-clothing names the pack a drawable belongs to and its index inside
+    -- it (collection + localIndex): the stable identity its catalog and its
+    -- studio pictures are filed under, which survives packs shifting the indices
+    if started('codem-clothing') then
+        local okC, comps = tryExport('codem-clothing', 'getPedComponents', ped)
+        for _, c in ipairs(okC and type(comps) == 'table' and comps or {}) do
+            local slot = out.components[c.component_id]
+            if slot and c.collection then slot.collection, slot.localIndex = c.collection, c.localIndex end
+        end
+        local okP, props = tryExport('codem-clothing', 'getPedProps', ped)
+        for _, p in ipairs(okP and type(props) == 'table' and props or {}) do
+            local slot = out.props[p.prop_id]
+            if slot and p.collection then slot.collection, slot.localIndex = p.collection, p.localIndex end
+        end
+    end
     return out
 end
 
@@ -461,11 +476,13 @@ local CHANGED = 'codem-lib:wardrobe:changed'
 local announced = {}
 
 local function announce(reason)
+    print(('[codem-lib][debug] wardrobe event %s (provider %s)'):format(reason, currentProvider()))
     -- one event per burst: a spawn fires three of these within a few frames
     if announced[reason] then return end
     announced[reason] = true
     SetTimeout(250, function()
         announced[reason] = nil
+        print(('[codem-lib][debug] -> %s (%s)'):format(CHANGED, reason))
         TriggerEvent(CHANGED, reason)
     end)
 end
@@ -476,11 +493,11 @@ local function listen(event)
     RegisterNetEvent(event, function() announce(event) end)
 end
 
-CreateThread(function()
-    -- the provider is only known once everything has started
-    Wait(2500)
-    for _, event in ipairs(LOADED_EVENTS) do listen(event) end
-    local a = adapter()
-    for _, event in ipairs(a and a.events or {}) do listen(event) end
-    for _, event in ipairs(cfg().changedEvents or {}) do listen(event) end
-end)
+-- Every adapter's events are listened to from the start. codem-lib starts
+-- before the appearance script, so which one is installed cannot be known
+-- here; an event of a script that is not there simply never fires.
+for _, event in ipairs(LOADED_EVENTS) do listen(event) end
+for _, a in pairs(ADAPTERS) do
+    for _, event in ipairs(a.events or {}) do listen(event) end
+end
+for _, event in ipairs(cfg().changedEvents or {}) do listen(event) end

@@ -967,3 +967,130 @@ function Framework.Server.GetStarterItems()
     if isQbox then return {} end
     return QBCore.Shared.StarterItems or {}
 end
+
+--------------------------------------------------------------------------------
+-- Money for a character who may be offline
+--------------------------------------------------------------------------------
+
+--[[
+    Charging somebody who is not connected.
+
+    Anything on a timer — rent that renews itself, a bill falling due — has to
+    move money for a character nobody is playing at that moment, and the
+    `src`-shaped functions above cannot: there is no source to pass.
+
+    Online FIRST, always. A connected player's money lives on their player
+    object and reaches the database on the core's own save cycle, so an SQL
+    write made while they are playing is undone the next time they are saved:
+    the money comes back and the charge silently never happened. The database
+    is the truth only for a character who is not loaded.
+
+    The remaining race — somebody connecting between the lookup and the write —
+    costs one charge and is not worth a lock: the caller finds out on the next
+    attempt, because nothing was written.
+]]
+
+local MONEY_ACCOUNTS = { cash = true, bank = true, crypto = true }
+
+---A citizen's source, when they are connected.
+---@param cid string
+---@return number|nil
+local function sourceOfCid(cid)
+    local player = playerByCid(cid)
+    local src = player and player.PlayerData and player.PlayerData.source
+    return tonumber(src)
+end
+
+---The stored `players.money` object, or nil when there is no such character.
+---@param cid string
+---@return table|nil
+local function storedMoney(cid)
+    local rows = dbQuery('SELECT `money` FROM `players` WHERE `citizenid` = ? LIMIT 1', { cid })
+    local row = rows and rows[1]
+    if not row then return nil end
+
+    local money = row.money
+    if type(money) == 'string' then
+        local ok, decoded = pcall(json.decode, money)
+        money = ok and decoded or nil
+    end
+    if type(money) ~= 'table' then return nil end
+    return money
+end
+
+---@param cid string
+---@param money table
+---@return boolean written
+local function writeMoney(cid, money)
+    local encoded = json.encode(money)
+    local sql = 'UPDATE `players` SET `money` = ? WHERE `citizenid` = ?'
+
+    if MySQL and MySQL.update and MySQL.update.await then
+        return (tonumber(MySQL.update.await(sql, { encoded, cid })) or 0) > 0
+    end
+
+    local p = promise.new()
+    exports.oxmysql:update(sql, { encoded, cid }, function(affected) p:resolve(affected) end)
+    return (tonumber(Citizen.Await(p)) or 0) > 0
+end
+
+---Balance of a character by citizenid, online or not.
+---@param cid string
+---@param account string 'cash' | 'bank'
+---@return number
+function Framework.Server.GetBalanceByCid(cid, account)
+    if type(cid) ~= 'string' and type(cid) ~= 'number' then return 0 end
+    account = MONEY_ACCOUNTS[account] and account or 'bank'
+
+    local src = sourceOfCid(cid)
+    if src then return Framework.Server.GetBalance(src, account) end
+
+    local money = storedMoney(cid)
+    return money and tonumber(money[account]) or 0
+end
+
+---Take money from a character by citizenid, online or not. False when the
+---account cannot cover it, and then nothing was taken.
+---@param cid string
+---@param amount number
+---@param account string 'cash' | 'bank'
+---@return boolean
+function Framework.Server.RemoveMoneyByCid(cid, amount, account)
+    amount = tonumber(amount) or 0
+    if amount <= 0 then return false end
+    if type(cid) ~= 'string' and type(cid) ~= 'number' then return false end
+    account = MONEY_ACCOUNTS[account] and account or 'bank'
+
+    local src = sourceOfCid(cid)
+    if src then return Framework.Server.RemoveMoney(src, amount, account) end
+
+    local money = storedMoney(cid)
+    if not money then return false end
+
+    local have = tonumber(money[account]) or 0
+    if have < amount then return false end
+
+    money[account] = have - amount
+    return writeMoney(cid, money)
+end
+
+---Give money to a character by citizenid, online or not.
+---@param cid string
+---@param amount number
+---@param account string 'cash' | 'bank'
+---@return boolean
+function Framework.Server.AddMoneyByCid(cid, amount, account)
+    amount = tonumber(amount) or 0
+    if amount <= 0 then return false end
+    if type(cid) ~= 'string' and type(cid) ~= 'number' then return false end
+    account = MONEY_ACCOUNTS[account] and account or 'bank'
+
+    local src = sourceOfCid(cid)
+    if src then return Framework.Server.AddMoney(src, amount, account) end
+
+    local money = storedMoney(cid)
+    if not money then return false end
+
+    money[account] = (tonumber(money[account]) or 0) + amount
+    return writeMoney(cid, money)
+end

@@ -482,3 +482,128 @@ end
 function Framework.Server.GetStarterItems()
     return {}
 end
+
+--------------------------------------------------------------------------------
+-- Money for a character who may be offline
+--------------------------------------------------------------------------------
+
+--[[
+    Charging somebody who is not connected.
+
+    Anything on a timer — rent that renews itself, a bill falling due — has to
+    move money for a character nobody is playing at that moment, and the
+    `src`-shaped functions above cannot: there is no source to pass.
+
+    Online FIRST, always. A loaded character's accounts live on the xPlayer
+    object and reach `users.accounts` on ESX's own save cycle, so an SQL write
+    made while they are playing is undone the next time they are saved. The
+    table is the truth only for a character who is not loaded.
+
+    ESX names the wallet `money`; consumers say `cash`, the same mapping the
+    online functions above use.
+]]
+
+local ACCOUNT_NAMES = { cash = 'money', bank = 'bank' }
+
+---The stored `users.accounts` object, or nil when there is no such character.
+---@param identifier string
+---@return table|nil
+local function storedAccounts(identifier)
+    local rows = dbQuery('SELECT `accounts` FROM `users` WHERE `identifier` = ? LIMIT 1', { identifier })
+    local row = rows and rows[1]
+    if not row then return nil end
+
+    local accounts = row.accounts
+    if type(accounts) == 'string' then
+        local ok, decoded = pcall(json.decode, accounts)
+        accounts = ok and decoded or nil
+    end
+    if type(accounts) ~= 'table' then return nil end
+    return accounts
+end
+
+---@param identifier string
+---@param accounts table
+---@return boolean written
+local function writeAccounts(identifier, accounts)
+    local encoded = json.encode(accounts)
+    local sql = 'UPDATE `users` SET `accounts` = ? WHERE `identifier` = ?'
+
+    if MySQL and MySQL.update and MySQL.update.await then
+        return (tonumber(MySQL.update.await(sql, { encoded, identifier })) or 0) > 0
+    end
+
+    local p = promise.new()
+    exports.oxmysql:update(sql, { encoded, identifier }, function(affected) p:resolve(affected) end)
+    return (tonumber(Citizen.Await(p)) or 0) > 0
+end
+
+---Balance of a character by identifier, online or not.
+---@param cid string ESX character identifier
+---@param account string 'cash' | 'bank'
+---@return number
+function Framework.Server.GetBalanceByCid(cid, account)
+    if type(cid) ~= 'string' or cid == '' then return 0 end
+    local name = ACCOUNT_NAMES[account] or account or 'bank'
+
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        local acc = xPlayer.getAccount(name)
+        return acc and acc.money or 0
+    end
+
+    local accounts = storedAccounts(cid)
+    return accounts and tonumber(accounts[name]) or 0
+end
+
+---Take money from a character by identifier, online or not. False when the
+---account cannot cover it, and then nothing was taken.
+---@param cid string
+---@param amount number
+---@param account string 'cash' | 'bank'
+---@return boolean
+function Framework.Server.RemoveMoneyByCid(cid, amount, account)
+    amount = tonumber(amount) or 0
+    if amount <= 0 or type(cid) ~= 'string' or cid == '' then return false end
+    local name = ACCOUNT_NAMES[account] or account or 'bank'
+
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        local acc = xPlayer.getAccount(name)
+        if not acc or (acc.money or 0) < amount then return false end
+        xPlayer.removeAccountMoney(name, amount)
+        return true
+    end
+
+    local accounts = storedAccounts(cid)
+    if not accounts then return false end
+
+    local have = tonumber(accounts[name]) or 0
+    if have < amount then return false end
+
+    accounts[name] = have - amount
+    return writeAccounts(cid, accounts)
+end
+
+---Give money to a character by identifier, online or not.
+---@param cid string
+---@param amount number
+---@param account string 'cash' | 'bank'
+---@return boolean
+function Framework.Server.AddMoneyByCid(cid, amount, account)
+    amount = tonumber(amount) or 0
+    if amount <= 0 or type(cid) ~= 'string' or cid == '' then return false end
+    local name = ACCOUNT_NAMES[account] or account or 'bank'
+
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        xPlayer.addAccountMoney(name, amount)
+        return true
+    end
+
+    local accounts = storedAccounts(cid)
+    if not accounts then return false end
+
+    accounts[name] = (tonumber(accounts[name]) or 0) + amount
+    return writeAccounts(cid, accounts)
+end

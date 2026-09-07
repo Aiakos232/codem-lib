@@ -476,13 +476,11 @@ local CHANGED = 'codem-lib:wardrobe:changed'
 local announced = {}
 
 local function announce(reason)
-    print(('[codem-lib][debug] wardrobe event %s (provider %s)'):format(reason, currentProvider()))
     -- one event per burst: a spawn fires three of these within a few frames
     if announced[reason] then return end
     announced[reason] = true
     SetTimeout(250, function()
         announced[reason] = nil
-        print(('[codem-lib][debug] -> %s (%s)'):format(CHANGED, reason))
         TriggerEvent(CHANGED, reason)
     end)
 end

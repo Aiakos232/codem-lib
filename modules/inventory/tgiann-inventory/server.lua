@@ -107,17 +107,54 @@ end
 
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
     if invType == 'stash' then
-        if data.owner then
-            exports['tgiann-inventory']:OpenInventory(source, "stash", data.id .. '_' .. data.owner)
-        else
-            exports['tgiann-inventory']:OpenInventory(source, "stash", data)
-        end
+        -- Out through the same door as OpenStash, so a stash opened this way
+        -- carries its registered position too (see `stashCoords`).
+        local asTable = type(data) == 'table' and data or nil
+        local id = asTable and asTable.owner
+            and (asTable.id .. '_' .. asTable.owner)
+            or (asTable and asTable.id or data)
+        Inventory.openStashServer(source, id, asTable)
     elseif invType == 'player' then
         exports["tgiann-inventory"]:OpenInventoryById(source, data)
     elseif invType == 'shop' then
         exports["tgiann-inventory"]:OpenShop(source, data.type)
     end
 end)
+---Coordinates the way tgiann wants them. Registration is sometimes handed a
+---plain table rather than a vector — a position read out of a database row, or
+---one that crossed an event — and either is a position.
+local function toCoords(value)
+    local kind = type(value)
+    if kind == 'vector3' or kind == 'vector4' then return value end
+    if kind == 'table' then
+        local x = tonumber(value.x or value[1])
+        local y = tonumber(value.y or value[2])
+        local z = tonumber(value.z or value[3])
+        if x and y and z then return vector3(x, y, z) end
+    end
+    return nil
+end
+
+--[[
+    Where each stash was last registered.
+
+    tgiann keeps the position a stash was CREATED with and ignores every later
+    registration, the same way it locks the capacity. Then it measures every
+    open against that position and kicks the player past
+    `config.openMaxDistance.other` — 20 m by default — as
+    `banOpeningInventoryFromDistance`. A stash that legitimately moves, or one
+    deliberately parked out of reach until it has a real place to be (motel
+    cupboards do this: an interior's coordinates do not exist until somebody is
+    inside it), therefore kicks whoever opens it where it actually is.
+
+    So the position is sent again with the open call, which tgiann does honour
+    — its own config says the coordinates may be given "during inventory
+    opening". This is the register-time position, not one the opener supplied:
+    a stash's whereabouts is the server's to know, and taking it from the
+    caller would turn tgiann's distance check into a formality.
+]]
+local stashCoords = {}
+
 ---Register a stash. Uses the table form (the positional whitelist slot is
 ---unreliable); tgiann supports item whitelist/blacklist restrictions.
 Inventory.registerStash = function(stashId, label, slots, weight, groups, coords, opts)
@@ -126,6 +163,7 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
         jobs = {}
         for jobName in pairs(groups) do jobs[#jobs + 1] = jobName end
     end
+    local at = toCoords(coords)
     -- tgiann's table form keys the stash on `stashName` (see its own
     -- policejob/ambulance callers); `name` is only accepted by the internal
     -- function, not the export - registering with it drops the whitelist.
@@ -138,8 +176,9 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
         whitelist = opts and opts.whitelist,
         blacklist = opts and opts.blacklist,
         jobs      = jobs,
-        coords    = coords,
+        coords    = at,
     })
+    stashCoords[stashId] = at
     return true
 end
 
@@ -148,14 +187,16 @@ end
 ---registered stash's capacity at first registration and ignores the data
 ---param afterwards, so when the stash is already loaded push the new size
 ---straight into it (vland-stashhouse does the same via UpdateInventoryData).
+---
+---The position goes with it as well, from `stashCoords` — see there for why a
+---stash that has moved since it was created gets its opener kicked without it.
 Inventory.openStashServer = function(src, stashId, invData)
-    local data
+    local data = {}
     if type(invData) == 'table' then
-        data = {
-            maxweight = invData.maxweight or invData.maxWeight or invData.weight,
-            slots     = invData.slots,
-            label     = invData.label,
-        }
+        data.maxweight = invData.maxweight or invData.maxWeight or invData.weight
+        data.slots     = invData.slots
+        data.label     = invData.label
+
         local ok, inv = pcall(function()
             return exports['tgiann-inventory']:GetInventory(stashId, 'stash')
         end)
@@ -167,6 +208,13 @@ Inventory.openStashServer = function(src, stashId, invData)
             })
         end
     end
+
+    data.coords = stashCoords[stashId]
+
+    -- Nothing to say: hand over nothing, the way this did before there was
+    -- anything to send.
+    if next(data) == nil then data = nil end
+
     exports['tgiann-inventory']:OpenInventory(src, 'stash', stashId, data)
     return true
 end

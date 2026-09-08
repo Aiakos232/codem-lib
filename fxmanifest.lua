@@ -55,6 +55,7 @@ server_scripts {
     'modules/society/server.lua',
     'modules/medical/server.lua',
     'modules/billing/server.lua',
+    'modules/mdt/server.lua',
     'modules/phone/server.lua',
     'modules/vehiclekeys/server.lua',
     'modules/fuel/server.lua',

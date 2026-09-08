@@ -42,6 +42,11 @@ LibConfig.Billing = {
     maxDistance = 0,
 }
 
+LibConfig.Mdt = {
+    enabled  = true,
+    provider = 'auto',
+}
+
 -- Phone number provider (reading / changing a character's number).
 -- Supported: 'codem-phone' | 'lb-phone' | 'qs-smartphone' | 'qs-smartphone-pro'
 -- | 'cylex_phone' | '17mov_Phone' | 'framework' (charinfo.phone / users.phone_number only) | 'auto'

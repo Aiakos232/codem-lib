@@ -73,6 +73,13 @@ local function summary()
         billing = 'none (disabled)'
     end
 
+    local mdt = detect(LibConfig.Mdt and LibConfig.Mdt.provider, {
+        'codem-mdtv2',
+    })
+    if LibConfig.Mdt and (LibConfig.Mdt.enabled == false or LibConfig.Mdt.provider == false) then
+        mdt = 'none (disabled)'
+    end
+
     local phone = detect(LibConfig.Phone and LibConfig.Phone.provider, {
         'codem-phone', 'lb-phone', 'qs-smartphone-pro', 'qs-smartphone', 'cylex_phone', '17mov_Phone',
     }, 'framework')
@@ -144,6 +151,7 @@ local function summary()
         { 'medical', medical },
         { 'notify', notify },
         { 'billing', billing },
+        { 'mdt', mdt },
         { 'phone', phone },
         { 'doorlock', doorlock },
         { 'garage', garage },

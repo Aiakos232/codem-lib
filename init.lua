@@ -76,6 +76,17 @@ if IsDuplicityVersion() then
         BillsTable = function() return exports[LIB]:GetBillingTable() end,
         ---@return string|nil active provider name
         Provider = function() return exports[LIB]:GetBillingProvider() end,
+        List = function(identifiers, limit) return exports[LIB]:GetInvoices(identifiers, limit) end,
+        Get = function(invoiceId) return exports[LIB]:GetInvoice(invoiceId) end,
+        ForcePay = function(invoiceId, opts) return exports[LIB]:ForcePayInvoice(invoiceId, opts) end,
+        Cancel = function(invoiceId) return exports[LIB]:CancelInvoice(invoiceId) end,
+        CancelUnpaid = function(identifiers) return exports[LIB]:CancelUnpaidInvoices(identifiers) end,
+    }
+
+    CodemLib.Mdt = {
+        Penalties = function(identifier, limit) return exports[LIB]:GetMdtPenalties(identifier, limit) end,
+        Summary = function(identifier) return exports[LIB]:GetMdtSummary(identifier) end,
+        Provider = function() return exports[LIB]:GetMdtProvider() end,
     }
 
     CodemLib.Phone = {

@@ -28,7 +28,7 @@ local function spawnOffset(spot)
     local y = (tonumber(spot.y) or 0.0) + 0.0
     local z = (tonumber(spot.z) or 0.0) + 0.0
     local rad = math.rad(heading)
-    return x + math.sin(rad) * 3.5, y + math.cos(rad) * 3.5, z, heading
+    return x - math.sin(rad) * 3.5, y + math.cos(rad) * 3.5, z, heading
 end
 
 local function parkQbx(garageName)

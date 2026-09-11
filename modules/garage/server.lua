@@ -20,7 +20,7 @@ local function spawnOf(x, y, z, heading)
     local py = (tonumber(y) or 0.0) + 0.0
     local pz = (tonumber(z) or 0.0) + 0.0
     local rad = math.rad(h)
-    return px + math.sin(rad) * 3.5, py + math.cos(rad) * 3.5, pz, h
+    return px - math.sin(rad) * 3.5, py + math.cos(rad) * 3.5, pz, h
 end
 
 local function pack4(x, y, z, w)

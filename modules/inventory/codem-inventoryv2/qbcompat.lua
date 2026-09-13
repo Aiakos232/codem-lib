@@ -36,10 +36,13 @@ end
 local function install()
     if active then return end
     if GetResourceState(TARGET) == 'missing' then return end
-    -- a real qb-inventory owns its own name; through `provide` the lookup
-    -- answers with codem-inventoryv2's manifest, so the name tells them apart
+    -- a real qb-inventory owns its own name. On qb-core the inventory starts a
+    -- code-free shell resource that provides the name (Config.qbCompatResource);
+    -- its manifest carries `codem_compat_for 'codem-inventoryv2'` so the shell
+    -- and a real qb-inventory tell apart
     local owner = GetResourceMetadata('qb-inventory', 'name', 0)
-    if owner and owner ~= '' and owner ~= TARGET then return end
+    local compatFor = GetResourceMetadata('qb-inventory', 'codem_compat_for', 0)
+    if owner and owner ~= '' and owner ~= TARGET and compatFor ~= TARGET then return end
     active = true
     for _, name in ipairs(NAMES) do
         AddEventHandler(('__cfx_export_qb-inventory_%s'):format(name), function(setCallback)

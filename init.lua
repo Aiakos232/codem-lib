@@ -163,6 +163,7 @@ if IsDuplicityVersion() then
     CodemLib.Wardrobe = {
         Provider = function() return exports[LIB]:GetWardrobeProvider() end,
         Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
+        Info = function() return exports[LIB]:GetWardrobeInfo() end,
     }
 
     CodemLib.Weather = {
@@ -308,6 +309,8 @@ else
         Provider = function() return exports[LIB]:GetWardrobeProvider() end,
         Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
         Open = function() return exports[LIB]:OpenWardrobe() end,
+        ---@return { provider: string, known: boolean, appearanceScript: string|nil }
+        Info = function() return exports[LIB]:GetWardrobeInfo() end,
         -- Clothing bridge (modules/wardrobe/client.lua): what the ped wears,
         -- dressing it through the appearance script, saving through the same.
         ---@param ped? number

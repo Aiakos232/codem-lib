@@ -131,6 +131,12 @@ local function registerQs(point)
     return true
 end
 
+local function registerCodem(point)
+    if not running('codem-garage') then return false end
+    sent[garageName(point.motelId or point.lotId, point.id)] = true
+    return true
+end
+
 local function registerLot(lot, opts)
     local p = provider()
     if p == 'none' then return end
@@ -145,7 +151,9 @@ local function registerLot(lot, opts)
         local point = points[i]
         point.motelId = point.motelId or lot.motelId or lot.id
         point.motelName = point.motelName or lot.motelName or lot.label
-        if p == 'qb-garages' then
+        if p == 'codem-garage' then
+            registerCodem(point)
+        elseif p == 'qb-garages' then
             registerQb(point, opts)
         elseif p == 'cd_garage' then
             registerCd(point, opts)

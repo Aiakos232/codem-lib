@@ -104,14 +104,14 @@ local function summary()
     }, 'native')
 
     local garage = detect(LibConfig.Garage and LibConfig.Garage.provider, {
-        'qbx_garages', 'qb-garages', 'cd_garage', 'qs-advancedgarages',
+        'codem-garage', 'qbx_garages', 'qb-garages', 'cd_garage', 'qs-advancedgarages',
     }, 'none')
     if LibConfig.Garage and (LibConfig.Garage.provider == 'none' or LibConfig.Garage.provider == false) then
         garage = 'none'
     end
 
     local wardrobe = detect(LibConfig.Wardrobe and LibConfig.Wardrobe.provider, {
-        'codem-clothing', 'illenium-appearance', 'fivem-appearance', 'qs-appearance', '4bit_appearance',
+        'codem-clothing', 'codem-appearance', 'illenium-appearance', 'fivem-appearance', 'qs-appearance', '4bit_appearance',
         'qf_skinmenu', 'crm-appearance', 'tgiann-clothing', 'rcore_clothing', '0r-clothing', 'qb-clothing',
         'esx_skin', 'skinchanger',
     }, 'none')

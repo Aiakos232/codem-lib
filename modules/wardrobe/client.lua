@@ -52,6 +52,12 @@ local OPENERS = {
         TriggerEvent('codem-clothing:client:openOutfitMenu')
         return true
     end,
+    ['codem-appearance'] = function()
+        if not started('codem-appearance') then return false end
+        -- the script's own spelling of the event
+        TriggerEvent('codem-apperance:OpenWardrobe')
+        return true
+    end,
     ['illenium-appearance'] = function()
         if not started('illenium-appearance') then return false end
         TriggerEvent('illenium-appearance:client:openOutfitMenu')
@@ -282,6 +288,51 @@ local function illeniumSave(resource)
     end
 end
 
+local function skinchangerSkin()
+    local ok, skin = tryExport('skinchanger', 'GetSkin')
+    if ok and type(skin) == 'table' then return skin end
+    -- older skinchanger: the skin comes back through a callback event
+    local current, done = nil, false
+    TriggerEvent('skinchanger:getSkin', function(s)
+        current, done = s, true
+    end)
+    local waited = 0
+    while not done and waited < 1000 do
+        Wait(10)
+        waited = waited + 10
+    end
+    return type(current) == 'table' and current or nil
+end
+
+
+---@return any|nil nil = no framework, or the callback never answered
+local function frameworkCallback(name, data)
+    local result, done = nil, false
+
+    if started('es_extended') then
+        local ok, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
+        if not ok or type(esx) ~= 'table' then return nil end
+        esx.TriggerServerCallback(name, function(res)
+            result, done = res, true
+        end, data)
+    elseif started('qb-core') then
+        local ok, core = pcall(function() return exports['qb-core']:GetCoreObject() end)
+        if not ok or type(core) ~= 'table' then return nil end
+        core.Functions.TriggerCallback(name, function(res)
+            result, done = res, true
+        end, data)
+    else
+        return nil
+    end
+
+    local waited = 0
+    while not done and waited < 5000 do
+        Wait(10)
+        waited = waited + 10
+    end
+    return result
+end
+
 -- Events after which the appearance script has dressed the player itself.
 -- Every framework's "character loaded" is in the shared list; each adapter adds
 -- the ones its script fires after a shop or an outfit.
@@ -418,15 +469,8 @@ local ADAPTERS = {
             if #changes == 0 then nativeSet(ped, components, props) end
         end,
         save = function()
-            local ok, skin = tryExport('skinchanger', 'GetSkin')
-            if not ok or type(skin) ~= 'table' then
-                -- older skinchanger: the skin comes back through a callback event
-                local done = false
-                TriggerEvent('skinchanger:getSkin', function(current) skin = current done = true end)
-                local waited = 0
-                while not done and waited < 1000 do Wait(10) waited = waited + 10 end
-                if type(skin) ~= 'table' then return false end
-            end
+            local skin = skinchangerSkin()
+            if not skin then return false end
             TriggerServerEvent('esx_skin:save', skin)
             return true
         end,
@@ -434,7 +478,26 @@ local ADAPTERS = {
     },
 }
 ADAPTERS['skinchanger'] = ADAPTERS['esx_skin']
-ADAPTERS['codem-appearance'] = ADAPTERS['esx_skin']
+
+
+ADAPTERS['codem-appearance'] = {
+    set = ADAPTERS['esx_skin'].set,
+    save = function()
+        local skin = skinchangerSkin()
+        if not skin then return false end
+        return frameworkCallback('codem-appearance:SaveSkin', {
+            skin = skin,
+            model = GetEntityModel(PlayerPedId()),
+        }) == true
+    end,
+    events = {
+        'codem-appearance:reloadSkin',
+        'codem-appearance:syncPed',
+        'codem-appereance:UseOutfit',
+        'qb-clothing:client:loadOutfit',
+        'qb-clothing:client:loadPlayerClothing',
+    },
+}
 
 local function adapter()
     local c = cfg()

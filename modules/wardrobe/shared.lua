@@ -6,6 +6,9 @@ local CANDIDATES = {
     -- illenium would find it anyway, only through the compatibility layer instead
     -- of its own exports
     'codem-clothing',
+    -- codem-appearance before esx_skin/skinchanger: skinchanger is its
+    -- dependency, so it is always running next to it
+    'codem-appearance',
     'illenium-appearance',
     'fivem-appearance',
     -- illenium forks with the same exports

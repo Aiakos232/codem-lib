@@ -228,6 +228,17 @@ local function openCd(spot)
     return true
 end
 
+local CODEM_HOUSE_GARAGE = 'House Garage'
+
+local function openCodem()
+    if currentVehicle() then
+        TriggerEvent('codem-garage:storeVehicle', CODEM_HOUSE_GARAGE)
+        return true
+    end
+    TriggerEvent('codem-garage:openHouseGarage')
+    return true
+end
+
 local function openQs(spot)
     if currentVehicle() then
         if tryExport('qs-advancedgarages', 'StoreVehicle') then return true end
@@ -285,7 +296,9 @@ function CodemLib.Garage.Open(spot)
     local p = spot.provider or provider()
     if p == 'none' then return false, 'missing' end
     if GetResourceState(p) ~= 'started' then return false, 'missing' end
-    if p == 'qbx_garages' then
+    if p == 'codem-garage' then
+        return openCodem()
+    elseif p == 'qbx_garages' then
         return openQbx(spot)
     elseif p == 'qb-garages' then
         return openQb(spot)

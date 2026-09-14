@@ -161,13 +161,18 @@ LibConfig.Dispatch = {
     provider = 'auto',
 }
 
+-- Garage provider (a lot codem-lib registers, and the menu that opens on it).
+-- Supported: 'codem-garage' | 'qbx_garages' | 'qb-garages' | 'cd_garage'
+-- | 'qs-advancedgarages' | 'auto' | 'none'
+-- codem-garage takes no garage of its own: it serves a lot through its house
+-- garage, so the car spawns where its own config's 'House Garage' entry says.
 LibConfig.Garage = {
     provider = 'auto',
 }
 
 -- Appearance / wardrobe provider (outfit menu, and the clothing bridge the
 -- inventory's clothing items dress the ped through).
--- Supported: 'codem-clothing' | 'illenium-appearance' | 'fivem-appearance'
+-- Supported: 'codem-clothing' | 'codem-appearance' | 'illenium-appearance' | 'fivem-appearance'
 -- | 'qs-appearance' | '4bit_appearance' | 'qf_skinmenu' | 'crm-appearance'
 -- | 'tgiann-clothing' | 'rcore_clothing' | '0r-clothing' | 'qb-clothing'
 -- | 'esx_skin' | 'skinchanger' | 'auto' | 'none'

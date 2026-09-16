@@ -8,18 +8,41 @@ local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and Lib
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
-    if GetResourceState('qbx_core') == 'started' then
-        FW = 'qbox'
-    elseif GetResourceState('qb-core') == 'started' then
-        FW = 'qb'
-    elseif GetResourceState('es_extended') == 'started' then
-        FW = 'esx'
+    -- Two passes: whichever core is already running wins, and when none is (a
+    -- consumer that starts before the core does) the one that is installed at
+    -- all is taken. The bridge itself asks the core object for later.
+    local CORES = { { 'qbx_core', 'qbox' }, { 'qb-core', 'qb' }, { 'es_extended', 'esx' } }
+    local function pick(started)
+        for _, core in ipairs(CORES) do
+            local state = GetResourceState(core[1])
+            if started and state == 'started' then return core[2] end
+            if not started and state ~= 'missing' then return core[2] end
+        end
+        return nil
     end
+    FW = pick(true) or pick(false) or FW
 end
 if FW ~= 'qb' and FW ~= 'qbox' then return end
 
 local isQbox = FW == 'qbox'
-local QBCore = not isQbox and exports['qb-core']:GetCoreObject() or nil
+--- The core object is asked for on first use, not while this file loads: a
+--- server that starts a consumer before qb-core would hit an export that is not
+--- there yet, and the whole bridge would be lost with the error.
+local coreObject
+local function resolveCore()
+    if coreObject == nil then
+        local ok, obj = pcall(function() return exports['qb-core']:GetCoreObject() end)
+        coreObject = (ok and type(obj) == 'table') and obj or false
+    end
+    return coreObject or nil
+end
+
+local QBCore = not isQbox and setmetatable({}, {
+    __index = function(_, key)
+        local obj = resolveCore()
+        return obj and obj[key] or nil
+    end,
+}) or nil
 
 Framework = Framework or {}
 Framework.Server = Framework.Server or {}

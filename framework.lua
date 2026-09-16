@@ -25,13 +25,19 @@ local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and Lib
     or 'auto'
 
 if FW == 'auto' then
-    if GetResourceState('qbx_core') == 'started' then
-        FW = 'qbox'
-    elseif GetResourceState('qb-core') == 'started' then
-        FW = 'qb'
-    elseif GetResourceState('es_extended') == 'started' then
-        FW = 'esx'
+    -- Two passes: whichever core is already running wins, and when none is (a
+    -- consumer that starts before the core does) the one that is installed at
+    -- all is taken. The bridge itself asks the core object for later.
+    local CORES = { { 'qbx_core', 'qbox' }, { 'qb-core', 'qb' }, { 'es_extended', 'esx' } }
+    local function pick(started)
+        for _, core in ipairs(CORES) do
+            local state = GetResourceState(core[1])
+            if started and state == 'started' then return core[2] end
+            if not started and state ~= 'missing' then return core[2] end
+        end
+        return nil
     end
+    FW = pick(true) or pick(false) or FW
 end
 
 local DIR = (FW == 'qb' or FW == 'qbox') and 'qbcore' or FW == 'esx' and 'esx' or nil

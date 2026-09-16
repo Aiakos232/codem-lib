@@ -8,17 +8,34 @@ local FW = (type(LibConfig) == 'table' and LibConfig.Framework ~= 'auto' and Lib
     or (type(Config) == 'table' and Config.Framework)
     or 'auto'
 if FW == 'auto' then
-    if GetResourceState('qbx_core') == 'started' then
-        FW = 'qbox'
-    elseif GetResourceState('qb-core') == 'started' then
-        FW = 'qb'
-    elseif GetResourceState('es_extended') == 'started' then
-        FW = 'esx'
+    -- Two passes: whichever core is already running wins, and when none is (a
+    -- consumer that starts before the core does) the one that is installed at
+    -- all is taken. The bridge itself asks the core object for later.
+    local CORES = { { 'qbx_core', 'qbox' }, { 'qb-core', 'qb' }, { 'es_extended', 'esx' } }
+    local function pick(started)
+        for _, core in ipairs(CORES) do
+            local state = GetResourceState(core[1])
+            if started and state == 'started' then return core[2] end
+            if not started and state ~= 'missing' then return core[2] end
+        end
+        return nil
     end
+    FW = pick(true) or pick(false) or FW
 end
 if FW ~= 'esx' then return end
 
-local ESX = exports['es_extended']:getSharedObject()
+--- Asked for on first use, so a consumer that starts before es_extended does
+--- not lose this whole bridge to a missing export.
+local sharedObject
+local ESX = setmetatable({}, {
+    __index = function(_, key)
+        if sharedObject == nil then
+            local ok, obj = pcall(function() return exports['es_extended']:getSharedObject() end)
+            sharedObject = (ok and type(obj) == 'table') and obj or false
+        end
+        return sharedObject and sharedObject[key] or nil
+    end,
+})
 
 Framework = Framework or {}
 Framework.Client = Framework.Client or {}

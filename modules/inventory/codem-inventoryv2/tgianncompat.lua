@@ -45,8 +45,12 @@ local function install()
     if active then return end
     if GetResourceState(TARGET) == 'missing' then return end
     -- a real tgiann-inventory owns its own name; through `provide` the lookup
-    -- answers with codem-inventoryv2's manifest, so the name tells them apart
-    if GetResourceMetadata('tgiann-inventory', 'name', 0) == 'tgiann-inventory' then return end
+    -- answers with codem-inventoryv2's manifest, so the name tells them apart.
+    -- A tgiann folder that is only lying there (stopped, kept for its items or
+    -- its config) owns nothing: the names are still answered here.
+    local owner = GetResourceMetadata('tgiann-inventory', 'name', 0)
+    local foreign = owner and owner ~= '' and owner ~= TARGET
+    if foreign and GetResourceState('tgiann-inventory') == 'started' then return end
     active = true
     for _, name in ipairs(NAMES) do
         AddEventHandler(('__cfx_export_tgiann-inventory_%s'):format(name), function(setCallback)

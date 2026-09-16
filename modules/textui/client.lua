@@ -21,6 +21,16 @@ local PROVIDERS = {
         hide = function() TriggerEvent('cd_drawtextui:HideUI') end,
     },
 
+    -- tgiann-core draws a named prompt with its own key badge, so the name and
+    -- the key come from opts ({ name = 'shop', key = 'E' }); one prompt per
+    -- name, which is what ContextClose needs to hide it again.
+    ['tgiann-core'] = {
+        show = function(t, o)
+            exports['tgiann-core']:ContextOpen((o and o.name) or 'codem-lib', (o and (o.key or o.button)) or 'E', t)
+        end,
+        hide = function(o) exports['tgiann-core']:ContextClose((o and o.name) or 'codem-lib') end,
+    },
+
     ['ox'] = {
         show = function(t, o)
             exports.ox_lib:showTextUI(t, { position = (o and o.position) or 'left-center', icon = o and o.icon })
@@ -30,7 +40,7 @@ local PROVIDERS = {
 }
 
 -- 'auto' detection order — dedicated text UI scripts win; then ox_lib if running.
-local CANDIDATES = { 'okokTextUI', 'cd_drawtextui' }
+local CANDIDATES = { 'okokTextUI', 'cd_drawtextui', 'tgiann-core' }
 
 local function provider()
     local cfg = (LibConfig.TextUI and LibConfig.TextUI.provider) or 'auto'
@@ -63,4 +73,4 @@ local function dispatch(verb, ...)
 end
 
 exports('ShowTextUI', function(text, opts) return dispatch('show', text, opts) end)
-exports('HideTextUI', function() return dispatch('hide') end)
+exports('HideTextUI', function(opts) return dispatch('hide', opts) end)

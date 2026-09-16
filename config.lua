@@ -85,7 +85,7 @@ LibConfig.Inventory = {
 }
 
 -- Text UI provider (persistent on-screen prompts).
--- Supported: 'okokTextUI' | 'cd_drawtextui' | 'ox' | 'auto'
+-- Supported: 'okokTextUI' | 'cd_drawtextui' | 'tgiann-core' | 'ox' | 'auto'
 LibConfig.TextUI = {
     provider = 'auto',
 }

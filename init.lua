@@ -344,9 +344,10 @@ else
 
     CodemLib.TextUI = {
         ---@param text string
-        ---@param opts? { position?: string, icon?: string }
+        ---@param opts? { position?: string, icon?: string, name?: string, key?: string }
         Show = function(text, opts) return exports[LIB]:ShowTextUI(text, opts) end,
-        Hide = function() return exports[LIB]:HideTextUI() end,
+        ---@param opts? { name?: string }
+        Hide = function(opts) return exports[LIB]:HideTextUI(opts) end,
     }
 
     ---@param opts { label: string, duration: number, canCancel?: boolean, useWhileDead?: boolean, disable?: table, anim?: table, prop?: table }

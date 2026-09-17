@@ -26,7 +26,14 @@ local PROVIDERS = {
     -- name, which is what ContextClose needs to hide it again.
     ['tgiann-core'] = {
         show = function(t, o)
-            exports['tgiann-core']:ContextOpen((o and o.name) or 'codem-lib', (o and (o.key or o.button)) or 'E', t)
+            local key = o and (o.key or o.button)
+            local label = tostring(t or '')
+            local marked, rest = label:match('^%s*%[([^%]]+)%]%s*(.*)$')
+            if marked then
+                key = key or marked
+                label = rest
+            end
+            exports['tgiann-core']:ContextOpen((o and o.name) or 'codem-lib', key or 'E', label)
         end,
         hide = function(o) exports['tgiann-core']:ContextClose((o and o.name) or 'codem-lib') end,
     },

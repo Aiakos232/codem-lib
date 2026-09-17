@@ -1,11 +1,12 @@
 --[[
-    HUD (client) — hides other HUD resources while a full-screen interface is
-    open and brings them back when the last caller is done.
+    HUD (client) — hides the running HUD while a full-screen interface is open
+    and brings it back afterwards. Selection via LibConfig.Hud.provider ('auto'
+    picks the first running HUD from the list below).
 
-    Several scripts may hold the HUD down at the same time (the inventory over
-    the clothing shop, for example). Each caller is counted, so the HUD only
-    returns once every one of them has released it. A caller that stops without
-    releasing is dropped automatically.
+    Several scripts may hold the HUD down at once (the inventory over the
+    clothing shop). Each caller is counted, so the HUD only returns once every
+    one of them has released it; a caller that stops without releasing is
+    dropped automatically.
 
     Exports:
       HideHud(token?)   -- token defaults to the calling resource
@@ -13,37 +14,36 @@
       IsHudHidden()
 ]]
 
-local KNOWN = {
-    ['codem-supreme-hud'] = { hide = 'HideHud', show = 'ShowHud' },
-    ['qbx_hud'] = { hideEvent = 'qbx_hud:client:hideHud', showEvent = 'qbx_hud:client:showHud' },
+local PROVIDERS = {
+    ['codem-supreme-hud'] = {
+        hide = function() exports['codem-supreme-hud']:HideHud() end,
+        show = function() exports['codem-supreme-hud']:ShowHud() end,
+    },
 }
 
--- Read by HUDs that have no hide/show entry point of their own. qbx_hud and
--- qb-hud rebuild their visibility every tick, so an event cannot hold them
--- down; one line in their loop can (see LibConfig.Hud in config.lua).
+-- 'auto' detection order.
+local CANDIDATES = { 'codem-supreme-hud' }
+
+-- Written on every hide, cleared on every show. A HUD that reads this state
+-- hides with no provider entry and no configuration at all.
 local STATE = 'codemHudHidden'
 
 local holders = {}
 local count = 0
 local hidden = false
+local warned = false
 
 local function cfg()
-    return LibConfig and LibConfig.Hud or {}
+    return (LibConfig and LibConfig.Hud) or {}
 end
 
-local function callTarget(resource, methods, hide)
-    if type(methods) ~= 'table' then return end
-    if GetResourceState(resource) ~= 'started' then return end
-
-    local event = hide and methods.hideEvent or methods.showEvent
-    if type(event) == 'string' and event ~= '' then TriggerEvent(event) end
-
-    local method = hide and methods.hide or methods.show
-    if type(method) ~= 'string' or method == '' then return end
-    local ok, err = pcall(function() exports[resource][method](exports[resource]) end)
-    if not ok and LibConfig and LibConfig.Debug then
-        print(('[codem-lib] Hud: %s:%s failed: %s'):format(resource, method, tostring(err)))
+local function provider()
+    local want = cfg().provider or 'auto'
+    if want ~= 'auto' then return want end
+    for _, res in ipairs(CANDIDATES) do
+        if GetResourceState(res) == 'started' then return res end
     end
+    return 'none'
 end
 
 local function fire(events)
@@ -53,21 +53,32 @@ local function fire(events)
     end
 end
 
-local function targets()
-    local out = {}
-    for resource, methods in pairs(KNOWN) do out[resource] = methods end
-    for resource, methods in pairs(cfg().resources or {}) do
-        out[resource] = type(methods) == 'table' and methods or nil
+local function dispatch(verb)
+    local name = provider()
+    local p = PROVIDERS[name]
+    if not p then
+        if name ~= 'none' then
+            print(('[codem-lib] Hud.%s: unknown provider "%s" - check LibConfig.Hud.provider'):format(verb, name))
+        elseif not warned then
+            warned = true
+            print('[codem-lib] Hud: no supported HUD is running, so nothing is hidden.')
+            print('[codem-lib] Hud: a HUD can also hide itself by reading')
+            print('[codem-lib] Hud: LocalPlayer.state.codemHudHidden in its draw loop.')
+        end
+        return false
     end
-    return out
+    local ok, err = pcall(p[verb])
+    if not ok then
+        print(('[codem-lib] Hud.%s via "%s" failed: %s'):format(verb, name, tostring(err)))
+        return false
+    end
+    return true
 end
 
 local function apply(hide)
     local settings = cfg()
     LocalPlayer.state:set(STATE, hide or nil, true)
-    for resource, methods in pairs(targets()) do
-        callTarget(resource, methods, hide)
-    end
+    dispatch(hide and 'hide' or 'show')
     fire(hide and (settings.events or {}).hide or (settings.events or {}).show)
     local custom = hide and settings.onHide or settings.onShow
     if type(custom) == 'function' then pcall(custom) end

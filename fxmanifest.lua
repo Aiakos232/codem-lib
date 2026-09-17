@@ -24,6 +24,7 @@ client_scripts {
     'modules/fuel/client.lua',
     'modules/notify/client.lua',
     'modules/textui/client.lua',
+    'modules/hud/client.lua',
     'modules/progress/client.lua',
     'modules/skillcheck/client.lua',
     'modules/doorlock/client.lua',

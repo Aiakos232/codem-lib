@@ -350,6 +350,16 @@ else
         Hide = function(opts) return exports[LIB]:HideTextUI(opts) end,
     }
 
+    ---Hides other HUDs while a full-screen interface is open. Callers are
+    ---counted, so the HUD returns only once every one of them has released it.
+    CodemLib.Hud = {
+        ---@param token? string defaults to this resource
+        Hide = function(token) return exports[LIB]:HideHud(token or GetCurrentResourceName()) end,
+        ---@param token? string
+        Show = function(token) return exports[LIB]:ShowHud(token or GetCurrentResourceName()) end,
+        IsHidden = function() return exports[LIB]:IsHudHidden() end,
+    }
+
     ---@param opts { label: string, duration: number, canCancel?: boolean, useWhileDead?: boolean, disable?: table, anim?: table, prop?: table }
     ---@return boolean completed
     CodemLib.Progress = function(opts) return exports[LIB]:Progress(opts) end

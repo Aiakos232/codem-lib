@@ -90,6 +90,38 @@ LibConfig.TextUI = {
     provider = 'auto',
 }
 
+-- Other HUDs, while a full-screen interface is open (inventory, clothing shop,
+-- phone). Every codem script asks the resources below to hide, and asks them
+-- back once the last open interface closes. Callers are counted, so a HUD that
+-- two scripts hid at the same time only returns when both are done.
+--   resources : resource name = { hide = 'ExportName', show = 'ExportName' }
+--               or { hideEvent = 'event:name', showEvent = 'event:name' }
+--               codem-supreme-hud and qbx_hud are handled already; set one to
+--               false to skip it
+--
+-- qbx_hud and qb-hud rebuild their visibility every tick, so nothing sent from
+-- outside stays hidden (qbx_hud's own events only cover the vehicle HUD). They
+-- read no flag of their own, so add one line to their draw loop -- in qbx_hud
+-- it goes right under `local show = true` in client/main.lua:
+--
+--     if LocalPlayer.state.codemHudHidden then show = false end
+--
+-- codem-lib sets that state on every hide and clears it on every show.
+--   events    : extra client events fired on hide / show
+--   onHide / onShow : your own code
+LibConfig.Hud = {
+    enable = true,
+    resources = {
+        -- ['tgiann-lumihud'] = { hide = 'hideHud', show = 'showHud' },
+    },
+    events = {
+        hide = {},
+        show = {},
+    },
+    onHide = nil,
+    onShow = nil,
+}
+
 -- Progress bar provider (blocking timed actions).
 -- Supported: 'progressbar' (qb) | 'ox' | 'auto'
 LibConfig.Progress = {

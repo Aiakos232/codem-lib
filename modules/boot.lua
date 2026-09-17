@@ -137,6 +137,29 @@ local function summary()
         'tk_dispatch', 'lb-tablet', 'origen_police', 'tgiann-policealert',
     }, 'native')
 
+    -- Every running HUD is hidden, not just one, so the table names the first
+    -- one found and how many others go with it.
+    local hud = 'none'
+    if LibConfig.Hud and LibConfig.Hud.enable == false then
+        hud = 'off'
+    else
+        local found = {}
+        local seen = { ['codem-supreme-hud'] = true, ['qbx_hud'] = true }
+        for _, res in ipairs({ 'codem-supreme-hud', 'qbx_hud' }) do
+            if GetResourceState(res) == 'started' then found[#found + 1] = res end
+        end
+        for res, methods in pairs((LibConfig.Hud and LibConfig.Hud.resources) or {}) do
+            if not seen[res] and type(methods) == 'table' and GetResourceState(res) == 'started' then
+                found[#found + 1] = res
+            end
+        end
+        if #found == 1 then
+            hud = found[1]
+        elseif #found > 1 then
+            hud = ('%s +%d'):format(found[1], #found - 1)
+        end
+    end
+
     local textui = detect(LibConfig.TextUI and LibConfig.TextUI.provider, { 'okokTextUI', 'cd_drawtextui' }, oxUp and 'ox' or 'none')
     local progress = detect(LibConfig.Progress and LibConfig.Progress.provider, { 'progressbar' }, oxUp and 'ox' or 'none')
     local skillcheck = detect(LibConfig.SkillCheck and LibConfig.SkillCheck.provider, { 'ps-ui' }, oxUp and 'ox' or 'none')
@@ -158,6 +181,7 @@ local function summary()
         { 'wardrobe', wardrobe },
         { 'weather', weather },
         { 'dispatch', dispatch },
+        { 'hud', hud },
         { 'textui', textui },
         { 'progress', progress },
         { 'skillcheck', skillcheck },

@@ -52,8 +52,15 @@ local function install()
     active = true
     for _, name in ipairs(NAMES) do
         AddEventHandler(('__cfx_export_ox_inventory_%s'):format(name), function(setCallback)
-            -- the export proxy is method-style: the first argument is `self`
-            setCallback(function(...) return exports[TARGET][name](nil, ...) end)
+            -- the export proxy is method-style: the first argument is `self`.
+            -- The target is resolved once and kept: indexing `exports[TARGET]`
+            -- on every call costs an export lookup, and a script that asks for
+            -- one of these each frame pays it every frame.
+            local fn
+            setCallback(function(...)
+                if not fn then fn = exports[TARGET][name] end
+                return fn(nil, ...)
+            end)
         end)
     end
 end

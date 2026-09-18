@@ -70,3 +70,11 @@ Inventory.openStash = function(stashId, invData)
     TriggerServerEvent('codem-lib:inventory:qb:openStash', stashId, invData)
     return true
 end
+
+RegisterNetEvent('codem-lib:inventory:qb:openStashLegacy', function(stashId, data)
+    TriggerServerEvent('inventory:server:OpenInventory', 'stash', stashId, {
+        maxweight = data and data.maxweight or 100000,
+        slots = data and data.slots or 50,
+    })
+    TriggerEvent('inventory:client:SetCurrentStash', stashId)
+end)

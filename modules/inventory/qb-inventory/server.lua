@@ -121,15 +121,31 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
     return true
 end
 
+local modernQb
+local function ModernQb()
+    if modernQb == nil then
+        modernQb = pcall(function()
+            return exports['qb-inventory']:GetInventory('__codem_lib_probe__')
+        end)
+    end
+    return modernQb
+end
+
 Inventory.openStashServer = function(src, stashId, invData)
     if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
     local id = tostring(stashId)
 
-    exports['qb-inventory']:OpenInventory(src, id, {
+    local data = {
         label     = invData and invData.label or id,
         maxweight = invData and (invData.maxweight or invData.maxWeight) or 100000,
         slots     = invData and invData.slots or 50,
-    })
+    }
+
+    if ModernQb() then
+        exports['qb-inventory']:OpenInventory(src, id, data)
+    else
+        TriggerClientEvent('codem-lib:inventory:qb:openStashLegacy', src, id, data)
+    end
     return true
 end
 

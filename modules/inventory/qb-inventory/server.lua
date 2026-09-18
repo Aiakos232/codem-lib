@@ -18,12 +18,16 @@ Inventory.canCarry = function(playerId, itemName, itemCount)
 end
 
 RegisterNetEvent('codem-lib:inventory:openInventory', function(invType, data)
+    local src = source
+    if LibGetInventoryResource() ~= 'qb-inventory' then return end
+    if type(data) ~= 'table' then return end
+
     if invType == 'shop' then
-        exports['qb-inventory']:OpenShop(source, data.type)
+        exports['qb-inventory']:OpenShop(src, data.type)
     elseif invType == 'player' then
-        exports['qb-inventory']:OpenInventoryById(source, data)
+        exports['qb-inventory']:OpenInventoryById(src, data)
     else
-        exports['qb-inventory']:OpenInventory(source, data)
+        Inventory.openStashServer(src, data.id or data.name or data.stashId, data)
     end
 end)
 
@@ -118,8 +122,23 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
 end
 
 Inventory.openStashServer = function(src, stashId, invData)
-    return false
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local id = tostring(stashId)
+
+    exports['qb-inventory']:OpenInventory(src, id, {
+        label     = invData and invData.label or id,
+        maxweight = invData and (invData.maxweight or invData.maxWeight) or 100000,
+        slots     = invData and invData.slots or 50,
+    })
+    return true
 end
+
+RegisterNetEvent('codem-lib:inventory:qb:openStash', function(stashId, invData)
+    local src = source
+    if LibGetInventoryResource() ~= 'qb-inventory' then return end
+    if invData ~= nil and type(invData) ~= 'table' then invData = nil end
+    Inventory.openStashServer(src, stashId, invData)
+end)
 
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>
 --Item metadata comes from the framework's shared table; only the picture

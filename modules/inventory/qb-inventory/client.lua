@@ -10,11 +10,11 @@ LibInventoryProviders['qb-inventory'] = Inventory
 Inventory.openInventory = function(invType, data)
     if invType == 'stash' then
         if data.owner then
-            TriggerServerEvent("inventory:server:OpenInventory", "stash", data.id .. '_' .. data.owner, {
-                maxweight = 250000,
-                slots = 100,
+            Inventory.openStash(data.id .. '_' .. data.owner, {
+                maxweight = data.maxweight or 250000,
+                slots = data.slots or 100,
+                label = data.label,
             })
-            TriggerEvent("inventory:client:SetCurrentStash", data.id .. '_' .. data.owner)
         else
             TriggerServerEvent('codem-lib:inventory:openInventory', invType, data)
         end
@@ -65,12 +65,8 @@ Inventory.getItemData = function(itemName)
                 'https://cfx-nui-qb-inventory/html/images/', itemName, info)
         }
 end
----Open a stash by id. Returns true when handled client-side.
+---Open a stash by id. Returns true when handled.
 Inventory.openStash = function(stashId, invData)
-    TriggerServerEvent('inventory:server:OpenInventory', 'stash', stashId, {
-        maxweight = invData and invData.maxweight or 100000,
-        slots = invData and invData.slots or 50,
-    })
-    TriggerEvent('inventory:client:SetCurrentStash', stashId)
+    TriggerServerEvent('codem-lib:inventory:qb:openStash', stashId, invData)
     return true
 end

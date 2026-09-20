@@ -164,6 +164,8 @@ if IsDuplicityVersion() then
         Provider = function() return exports[LIB]:GetWardrobeProvider() end,
         Enabled = function() return exports[LIB]:GetWardrobeProvider() ~= 'none' end,
         Info = function() return exports[LIB]:GetWardrobeInfo() end,
+        ---@param identifier string citizenid (QBCore / Qbox) or users.identifier (ESX)
+        StoredAppearance = function(identifier) return exports[LIB]:GetStoredAppearance(identifier) end,
     }
 
     CodemLib.Weather = {
@@ -272,6 +274,33 @@ if IsDuplicityVersion() then
         ---@param src number, stashId string, invData? table @return boolean handled
         OpenStashServer = function(src, stashId, invData) return exports[LIB]:OpenStashServer(src, stashId, invData) end,
     }
+
+    local PREVIEW_WRAP_POLL_MS, PREVIEW_WRAP_TRIES = 100, 50
+
+    local function wrapPreviewSkin()
+        if type(MCBridge) ~= 'table' or type(Bridge) ~= 'table' or type(Bridge.GetPreviewSkin) ~= 'function' then return false end
+        if Bridge.__libPreviewSkin then return true end
+        local readFrameworkTable = Bridge.GetPreviewSkin
+        Bridge.__libPreviewSkin = true
+        Bridge.GetPreviewSkin = function(identifier)
+            local ok, stored = pcall(function() return exports[LIB]:GetStoredAppearance(identifier) end)
+            if ok and type(stored) == 'table' then return stored end
+            if ok and stored == false then return nil end
+            return readFrameworkTable(identifier)
+        end
+        return true
+    end
+
+    AddEventHandler('onResourceStart', function(resource)
+        if resource == GetCurrentResourceName() then wrapPreviewSkin() end
+    end)
+
+    CreateThread(function()
+        for _ = 1, PREVIEW_WRAP_TRIES do
+            if wrapPreviewSkin() then return end
+            Wait(PREVIEW_WRAP_POLL_MS)
+        end
+    end)
 else
     -- ── Client ──────────────────────────────────────────────────────────────
     CodemLib.Keys = {
@@ -322,6 +351,7 @@ else
         SetClothing = function(ped, components, props) return exports[LIB]:SetPedClothing(ped, components, props) end,
         ---@return boolean
         SaveClothing = function() return exports[LIB]:SavePedClothing() end,
+        SetAppearance = function(ped, appearance) return exports[LIB]:setPedAppearance(ped, appearance) end,
         -- local event fired after the appearance script dressed the player on its own
         ChangedEvent = 'codem-lib:wardrobe:changed',
     }

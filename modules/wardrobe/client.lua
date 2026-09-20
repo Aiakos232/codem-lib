@@ -121,9 +121,6 @@ local OPENERS = {
     end,
     ['rcore_clothing'] = function()
         if not started('rcore_clothing') then return false end
-        if tryExport('rcore_clothing', 'openChangingRoom') then return true end
-        if tryExport('rcore_clothing', 'openOutfitMenu') then return true end
-        if tryExport('rcore_clothing', 'openMenu') then return true end
         TriggerEvent('rcore_clothing:openChangingRoom')
         return true
     end,
@@ -208,7 +205,30 @@ local function nativeSet(ped, components, props)
     end
 end
 
--- skinchanger (esx_skin, tgiann, rcore, codem-appearance) names every drawable
+local MODEL_LOAD_MS = 5000
+local HASH_MASK = 0xFFFFFFFF
+
+local function toHash(model)
+    if type(model) == 'string' then
+        local numeric = tonumber(model)
+        return numeric and math.tointeger(numeric) or joaat(model)
+    end
+    return type(model) == 'number' and model or nil
+end
+
+local function wearPlayerModel(model)
+    local hash = toHash(model)
+    if not hash or (GetEntityModel(PlayerPedId()) & HASH_MASK) == (hash & HASH_MASK) then return end
+    if not IsModelInCdimage(hash) then return end
+    RequestModel(hash)
+    local deadline = GetGameTimer() + MODEL_LOAD_MS
+    while not HasModelLoaded(hash) and GetGameTimer() < deadline do Wait(0) end
+    if not HasModelLoaded(hash) then return end
+    SetPlayerModel(PlayerId(), hash)
+    SetModelAsNoLongerNeeded(hash)
+end
+
+-- skinchanger (esx_skin, tgiann, codem-appearance) names every drawable
 local SKIN_COMPONENT = {
     [1] = { 'mask_1', 'mask_2' },
     [3] = { 'arms', 'arms_2' },
@@ -413,20 +433,21 @@ local ADAPTERS = {
         events = { 'qb-clothing:client:loadPlayerClothing' },
     },
     ['rcore_clothing'] = {
-        set = function(ped, components, props)
-            local partial = {}
-            for _, change in ipairs(skinChanges(components, props)) do partial[change[1]] = change[2] end
-            if next(partial) then
-                TriggerEvent('skinchanger:loadSkin', partial)
-            else
-                nativeSet(ped, components, props)
-            end
-        end,
+        set = nativeSet,
         save = function()
             TriggerEvent('rcore_clothing:saveCurrentSkin')
             return true
         end,
-        events = { 'rcore_clothing:charcreator:done', 'rcore_clothing:onClothingShopClosed', 'rcore_clothing:outfitChanged' },
+        appearance = function(ped, data)
+            if ped == PlayerPedId() then
+                wearPlayerModel(data.ped_model)
+                -- SetPlayerModel replaces the ped handle
+                ped = PlayerPedId()
+            end
+            if type(data.skin) == 'table' and tryExport('rcore_clothing', 'setPedSkin', ped, data.skin) then return true end
+            return tryExport('rcore_clothing', 'setPedSkin', ped, data) == true
+        end,
+        events = { 'rcore_clothing:charcreator:done', 'rcore_clothing:onClothingShopClosed', 'rcore_clothing:afterSkinLoaded' },
     },
     ['0r-clothing'] = {
         set = function(ped, components, props)
@@ -532,6 +553,18 @@ end
 exports('GetPedClothing', getClothing)
 exports('SetPedClothing', setClothing)
 exports('SavePedClothing', saveClothing)
+
+local function setAppearance(ped, appearance)
+    ped = ped or PlayerPedId()
+    if type(appearance) ~= 'table' then return false end
+    local a = ADAPTERS[appearance.provider]
+    if a and a.appearance and type(appearance.data) == 'table' then return a.appearance(ped, appearance.data) end
+    if ped == PlayerPedId() then return setClothing(ped, appearance.components, appearance.props) end
+    nativeSet(ped, appearance.components, appearance.props)
+    return true
+end
+
+exports('setPedAppearance', setAppearance)
 
 -- ---------------------------------------------------------------- "the script dressed me"
 

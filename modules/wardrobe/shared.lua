@@ -9,6 +9,7 @@ local CANDIDATES = {
     -- codem-appearance before esx_skin/skinchanger: skinchanger is its
     -- dependency, so it is always running next to it
     'codem-appearance',
+    'rcore_clothing',
     'illenium-appearance',
     'fivem-appearance',
     -- illenium forks with the same exports
@@ -17,7 +18,6 @@ local CANDIDATES = {
     'qf_skinmenu',
     'crm-appearance',
     'tgiann-clothing',
-    'rcore_clothing',
     -- 0r-clothing speaks qb-clothing's events and has its own exports
     '0r-clothing',
     'qb-clothing',
@@ -45,17 +45,52 @@ exports('GetWardrobeProvider', provider)
 local APPEARANCE_EXPORT = {
     ['codem-clothing'] = true, ['illenium-appearance'] = true, ['fivem-appearance'] = true,
     ['qs-appearance'] = true, ['4bit_appearance'] = true, ['qf_skinmenu'] = true,
-    ['crm-appearance'] = true, ['tgiann-clothing'] = true, ['rcore_clothing'] = true,
+    ['crm-appearance'] = true, ['tgiann-clothing'] = true,
+    ['rcore_clothing'] = GetCurrentResourceName(),
 }
+
+-- identifier: citizenid on QBCore / Qbox, users.identifier on ESX.
+local STORED_APPEARANCE = {
+    ['rcore_clothing'] = function(identifier)
+        local data = exports['rcore_clothing']:getSkinByIdentifier(identifier)
+        if type(data) ~= 'table' or data.skin == nil then return nil end
+        return data.ped_model, data
+    end,
+}
+
+---@param identifier string
+local function storedAppearance(identifier)
+    local name = provider()
+    local read = STORED_APPEARANCE[name]
+    if not read or GetResourceState(name) ~= 'started' then return nil end
+    if type(identifier) ~= 'string' or identifier == '' then return false end
+
+    local ok, model, data = pcall(read, identifier)
+    if not ok then
+        print(('[codem-lib] Wardrobe.StoredAppearance via "%s" failed: %s'):format(name, tostring(model)))
+        return false
+    end
+    if not data then return false end
+    return { model = model, skin = { provider = name, components = {}, props = {}, data = data } }
+end
+
+exports('GetStoredAppearance', storedAppearance)
 
 local KNOWN = {}
 for i = 1, #CANDIDATES do KNOWN[CANDIDATES[i]] = true end
 
+local function appearanceExportOf(name)
+    local answeredBy = APPEARANCE_EXPORT[name]
+    if not answeredBy or GetResourceState(name) ~= 'started' then return nil end
+    return answeredBy == true and name or answeredBy
+end
+
 local function appearanceScript(active)
-    if APPEARANCE_EXPORT[active] and GetResourceState(active) == 'started' then return active end
+    local name = appearanceExportOf(active)
+    if name then return name end
     for i = 1, #CANDIDATES do
-        local name = CANDIDATES[i]
-        if APPEARANCE_EXPORT[name] and GetResourceState(name) == 'started' then return name end
+        name = appearanceExportOf(CANDIDATES[i])
+        if name then return name end
     end
     return nil
 end

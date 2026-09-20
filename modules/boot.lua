@@ -111,8 +111,8 @@ local function summary()
     end
 
     local wardrobe = detect(LibConfig.Wardrobe and LibConfig.Wardrobe.provider, {
-        'codem-clothing', 'codem-appearance', 'illenium-appearance', 'fivem-appearance', 'qs-appearance', '4bit_appearance',
-        'qf_skinmenu', 'crm-appearance', 'tgiann-clothing', 'rcore_clothing', '0r-clothing', 'qb-clothing',
+        'codem-clothing', 'codem-appearance', 'rcore_clothing', 'illenium-appearance', 'fivem-appearance', 'qs-appearance',
+        '4bit_appearance', 'qf_skinmenu', 'crm-appearance', 'tgiann-clothing', '0r-clothing', 'qb-clothing',
         'esx_skin', 'skinchanger',
     }, 'none')
     if LibConfig.Wardrobe and (LibConfig.Wardrobe.provider == 'none' or LibConfig.Wardrobe.provider == false) then

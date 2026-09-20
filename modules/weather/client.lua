@@ -53,7 +53,7 @@ local localOverride = nil
 
 local PROVIDERS = {
     'Renewed-Weathersync', 'qbx_weathersync', 'qb-weathersync', 'cd_easytime', 'av_sync', 'av_weather',
-    'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync',
+    'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync', 'codem-dynamicweather',
 }
 
 local function activeProviders()
@@ -75,6 +75,19 @@ local function pauseProviders(pause)
             TriggerEvent('cd_easytime:PauseSync', pause)
         elseif name == 'vSync' then
             TriggerEvent('vSync:toggle', pause)
+        elseif name == 'weathersync' then
+            TriggerEvent('weathersync:setSyncEnabled', not pause)
+        elseif name == 'codem-dynamicweather' then
+            pcall(function()
+                local weather = exports['codem-dynamicweather']
+                if pause then
+                    weather:setLocalWeather(localOverride and localOverride.weather or 'EXTRASUNNY')
+                    weather:setLocalTime(localOverride and localOverride.hour or 12, localOverride and localOverride.minute or 0)
+                else
+                    weather:clearLocalWeather()
+                    weather:clearLocalTime()
+                end
+            end)
         elseif name == 'av_weather' or name == 'av_sync' then
             if pause then
                 TriggerEvent('av_weather:freeze', true, localOverride and localOverride.hour or 12, localOverride and localOverride.minute or 0, localOverride and localOverride.weather or 'EXTRASUNNY', false, false, false)
@@ -104,11 +117,15 @@ local function setLocalOverride(enabled, opts)
     local weather = type(opts.weather) == 'string' and opts.weather:upper() or 'EXTRASUNNY'
     local hour = tonumber(opts.hour) or 12
     local minute = tonumber(opts.minute) or 0
-    local wasActive = localOverride ~= nil
+    local last = localOverride
+    local wasActive = last ~= nil
+    local moved = not last or last.weather ~= weather or last.hour ~= hour or last.minute ~= minute
     localOverride = { weather = weather, hour = hour, minute = minute }
+    -- Pausing twice is harmless, and the providers that are handed the values
+    -- (av_weather, codem-dynamicweather) need them again when they change.
+    if moved then pauseProviders(true) end
     if wasActive then return true end
 
-    pauseProviders(true)
     CreateThread(function()
         while localOverride do
             local o = localOverride
@@ -125,6 +142,7 @@ end
 
 exports('SetLocalWeatherOverride', setLocalOverride)
 exports('GetLocalWeatherOverride', function() return localOverride end)
+exports('GetLocalWeatherProviders', function() return PROVIDERS end)
 
 AddEventHandler('onResourceStop', function(res)
     if res == GetCurrentResourceName() and localOverride then setLocalOverride(false) end

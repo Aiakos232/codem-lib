@@ -109,56 +109,42 @@ local function registerCd(point, opts)
     return true
 end
 
-local function registerQs(point)
-    if not running('qs-advancedgarages') then return false end
-    local name = garageName(point.motelId or point.lotId, point.id)
-    if sent[name] then return true end
-    local sx, sy, sz, sh = spawnOf(point.x, point.y, point.z, point.heading)
-    local ok = pcall(function()
-        exports['qs-advancedgarages']:CreateGarage(name, {
-            owner = false,
-            available = true,
-            type = 'vehicle',
-            coords = {
-                menuCoords = { x = point.x, y = point.y, z = point.z },
-                spawnCoords = { x = sx, y = sy, z = sz, w = sh },
-            },
-            price = 0,
-        })
-    end)
-    if not ok then return false end
-    sent[name] = true
-    return true
-end
-
-local function registerCodem(point)
-    if not running('codem-garage') then return false end
+local function registerName(point)
     sent[garageName(point.motelId or point.lotId, point.id)] = true
     return true
 end
 
+local PROVIDERS = {
+    ['qbx_garages']        = { scope = 'lot',   register = registerQbx },
+    ['qb-garages']         = { scope = 'point', register = registerQb },
+    ['cd_garage']          = { scope = 'point', register = registerCd },
+    ['codem-garage']       = { scope = 'point', register = registerName },
+    ['qs-advancedgarages'] = { scope = 'point', register = registerName },
+}
+
 local function registerLot(lot, opts)
-    local p = provider()
-    if p == 'none' then return end
+    local name = provider()
+    local p = PROVIDERS[name]
+    if not p then return end
     local points = lot.points or {}
     if #points == 0 then return end
     lot.id = lot.id or lot.motelId
-    if p == 'qbx_garages' then
-        registerQbx(lot, opts)
+
+    if p.scope == 'lot' then
+        local ok, err = pcall(p.register, lot, opts)
+        if not ok then
+            print(('[codem-lib] Garage register via "%s" failed: %s'):format(name, tostring(err)))
+        end
         return
     end
+
     for i = 1, #points do
         local point = points[i]
         point.motelId = point.motelId or lot.motelId or lot.id
         point.motelName = point.motelName or lot.motelName or lot.label
-        if p == 'codem-garage' then
-            registerCodem(point)
-        elseif p == 'qb-garages' then
-            registerQb(point, opts)
-        elseif p == 'cd_garage' then
-            registerCd(point, opts)
-        elseif p == 'qs-advancedgarages' then
-            registerQs(point)
+        local ok, err = pcall(p.register, point, opts)
+        if not ok then
+            print(('[codem-lib] Garage register via "%s" failed: %s'):format(name, tostring(err)))
         end
     end
 end

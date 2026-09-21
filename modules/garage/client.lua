@@ -240,14 +240,46 @@ local function openCodem()
 end
 
 local function openQs(spot)
-    if currentVehicle() then
-        if tryExport('qs-advancedgarages', 'StoreVehicle') then return true end
-        if tryExport('qs-advancedgarages', 'OpenGarageMenu', spot.garageName) then return true end
-        return true
-    end
     if tryExport('qs-advancedgarages', 'OpenGarageMenu', spot.garageName) then return true end
     return false, 'failed'
 end
+
+local function bindQs(spot)
+    local sx, sy, sz, sh = spawnOffset(spot)
+    local mx = (tonumber(spot.x) or 0.0) + 0.0
+    local my = (tonumber(spot.y) or 0.0) + 0.0
+    local mz = (tonumber(spot.z) or 0.0) + 0.0
+    exports['qs-advancedgarages']:CreateGarage(spot.garageName, {
+        owner = false,
+        available = true,
+        type = 'vehicle',
+        coords = {
+            menuCoords = vector3(mx, my, mz),
+            spawnCoords = vector4(sx, sy, sz, sh),
+        },
+        price = 0,
+    })
+    return true
+end
+
+local function bindQb(spot)
+    local sx, sy, sz, sh = spawnOffset(spot)
+    TriggerEvent('qb-garages:client:addHouseGarage', spot.garageName, {
+        takeVehicle = { x = sx, y = sy, z = sz, w = sh },
+        spawnPoint = { { x = sx, y = sy, z = sz, w = sh } },
+        label = (spot.label ~= nil and spot.label ~= '') and spot.label or 'Garage',
+        type = 'public',
+    })
+    return true
+end
+
+local PROVIDERS = {
+    ['codem-garage']       = { open = openCodem, bind = false },
+    ['qbx_garages']        = { open = openQbx,   bind = false },
+    ['qb-garages']         = { open = openQb,    bind = bindQb },
+    ['cd_garage']          = { open = openCd,    bind = false },
+    ['qs-advancedgarages'] = { open = openQs,    bind = bindQs },
+}
 
 CodemLib = CodemLib or {}
 CodemLib.Garage = CodemLib.Garage or {}
@@ -262,30 +294,13 @@ end
 function CodemLib.Garage.Bind(spot)
     if type(spot) ~= 'table' then return false end
     ensureName(spot)
-    local p = spot.provider or provider()
-    local sx, sy, sz, sh = spawnOffset(spot)
-    if p == 'qb-garages' then
-        TriggerEvent('qb-garages:client:addHouseGarage', spot.garageName, {
-            takeVehicle = { x = sx, y = sy, z = sz, w = sh },
-            spawnPoint = { { x = sx, y = sy, z = sz, w = sh } },
-            label = (spot.label ~= nil and spot.label ~= '') and spot.label or 'Garage',
-            type = 'public',
-        })
-        return true
-    elseif p == 'qs-advancedgarages' then
-        pcall(function()
-            exports['qs-advancedgarages']:CreateGarage(spot.garageName, {
-                owner = false,
-                available = true,
-                type = 'vehicle',
-                coords = {
-                    menuCoords = vector3(spot.x, spot.y, spot.z),
-                    spawnCoords = vector4(sx, sy, sz, sh),
-                },
-                price = 0,
-            })
-        end)
-        return true
+    local p = PROVIDERS[spot.provider or provider()]
+    if not p or not p.bind then return true end
+    local ok, err = pcall(p.bind, spot)
+    if not ok then
+        print(('[codem-lib] Garage.Bind via "%s" failed: %s')
+            :format(spot.provider or provider(), tostring(err)))
+        return false
     end
     return true
 end
@@ -293,19 +308,11 @@ end
 function CodemLib.Garage.Open(spot)
     if type(spot) ~= 'table' then return false, 'failed' end
     ensureName(spot)
-    local p = spot.provider or provider()
-    if p == 'none' then return false, 'missing' end
-    if GetResourceState(p) ~= 'started' then return false, 'missing' end
-    if p == 'codem-garage' then
-        return openCodem()
-    elseif p == 'qbx_garages' then
-        return openQbx(spot)
-    elseif p == 'qb-garages' then
-        return openQb(spot)
-    elseif p == 'cd_garage' then
-        return openCd(spot)
-    elseif p == 'qs-advancedgarages' then
-        return openQs(spot)
-    end
-    return false, 'failed'
+    local name = spot.provider or provider()
+    if name == 'none' then return false, 'missing' end
+    if GetResourceState(name) ~= 'started' then return false, 'missing' end
+
+    local p = PROVIDERS[name]
+    if not p or not p.open then return false, 'failed' end
+    return p.open(spot)
 end

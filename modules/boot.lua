@@ -104,7 +104,7 @@ local function summary()
     }, 'native')
 
     local garage = detect(LibConfig.Garage and LibConfig.Garage.provider, {
-        'codem-garage', 'qbx_garages', 'qb-garages', 'cd_garage', 'qs-advancedgarages',
+        'codem-garage', 'qs-advancedgarages', 'cd_garage', 'qbx_garages', 'qb-garages',
     }, 'none')
     if LibConfig.Garage and (LibConfig.Garage.provider == 'none' or LibConfig.Garage.provider == false) then
         garage = 'none'

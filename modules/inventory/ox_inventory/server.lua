@@ -129,6 +129,44 @@ Inventory.moveStash = function(fromId, toId)
     })
 end
 
+local itemDefaults = {}
+local defaultsHookId = nil
+
+local function EnsureDefaultsHook()
+    if defaultsHookId or not next(itemDefaults) then return end
+    if GetResourceState('ox_inventory') ~= 'started' then return end
+    defaultsHookId = exports['ox_inventory']:registerHook('createItem', function(payload)
+        local entry = payload.item and itemDefaults[payload.item.name]
+        if not entry then return end
+        local metadata = payload.metadata or {}
+        for key, value in pairs(entry.metadata) do
+            if metadata[key] == nil then metadata[key] = value end
+        end
+        return metadata
+    end)
+end
+
+Inventory.setItemDefaults = function(resource, itemName, metadata)
+    itemDefaults[itemName] = { resource = resource, metadata = metadata }
+    EnsureDefaultsHook()
+    return true
+end
+
+AddEventHandler('onResourceStart', function(resourceName)
+    if resourceName ~= 'ox_inventory' then return end
+    SetTimeout(1000, EnsureDefaultsHook)
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if resourceName == 'ox_inventory' then
+        defaultsHookId = nil
+        return
+    end
+    for itemName, entry in pairs(itemDefaults) do
+        if entry.resource == resourceName then itemDefaults[itemName] = nil end
+    end
+end)
+
 --@param stashId: string|number [stash identifier]
 --@return items: table [same shape as getPlayerItems] or nil when the stash is unknown
 Inventory.stashItems = function(stashId)

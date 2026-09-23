@@ -80,6 +80,14 @@ exports('OpenStashServer', function(src, stashId, invData) return call('openStas
     the same item as every other key — so callers refuse item-keyed
     features rather than hand out a master key by accident.
 ]]
+exports('SetItemDefaultMetadata', function(itemName, metadata)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider.setItemDefaults then return false end
+    local ok, out = pcall(provider.setItemDefaults, GetInvokingResource(), itemName, metadata)
+    return ok and out == true
+end)
+
 exports('SupportsItemMetadata', function()
     local res = LibGetInventoryResource()
     local provider = res and LibInventoryProviders[res]

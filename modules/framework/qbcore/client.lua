@@ -85,6 +85,19 @@ RegisterNetEvent(Framework.Client.PlayerUnloadedEvent, function()
     for _, cb in ipairs(unloadedCallbacks) do CreateThread(cb) end
 end)
 
+local jobCallbacks = {}
+
+---Runs cb(job) each time the player's job or grade changes.
+---@param cb fun(job: table)
+function Framework.Client.OnJobChanged(cb)
+    jobCallbacks[#jobCallbacks + 1] = cb
+end
+
+-- Qbox keeps the QBCore event name.
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
+    for _, cb in ipairs(jobCallbacks) do CreateThread(function() cb(job) end) end
+end)
+
 ---Announces the spawn after a character was loaded, the way the framework's
 ---own multicharacter does. Fires the OnPlayerLoaded callbacks as a side effect.
 function Framework.Client.SpawnHandshake()

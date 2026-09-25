@@ -434,6 +434,34 @@ function Framework.Server.AddMoney(src, amount, account)
     return Player.Functions.AddMoney(account, amount, GetCurrentResourceName()) and true or false
 end
 
+local moneyChanged = {}
+
+---Runs cb(src, account, amount, operation, reason) whenever a character's money
+---changes, from any script. operation is 'add' | 'remove' | 'set'; for 'set'
+---amount is the new total. Registered per consumer, so it fires once each.
+---@param cb fun(src: number, account: string, amount: number, operation: string, reason?: string)
+function Framework.Server.OnMoneyChange(cb)
+    moneyChanged[#moneyChanged + 1] = cb
+end
+
+local jobChanged = {}
+
+---Runs cb(src, job) whenever a character's job or grade changes.
+---@param cb fun(src: number, job: table)
+function Framework.Server.OnJobChanged(cb)
+    jobChanged[#jobChanged + 1] = cb
+end
+
+-- Qbox keeps the QBCore event name and arguments.
+AddEventHandler('QBCore:Server:OnJobUpdate', function(src, job)
+    for _, cb in ipairs(jobChanged) do cb(src, job) end
+end)
+
+-- Qbox keeps the QBCore event name and arguments.
+AddEventHandler('QBCore:Server:OnMoneyChange', function(src, account, amount, operation, reason)
+    for _, cb in ipairs(moneyChanged) do cb(src, account, tonumber(amount) or 0, operation, reason) end
+end)
+
 --------------------------------------------------------------------------------
 -- Items
 --------------------------------------------------------------------------------
@@ -962,6 +990,7 @@ function Framework.Server.DeleteCharacter(src, citizenid)
     else
         QBCore.Player.DeleteCharacter(src, citizenid)
     end
+    TriggerEvent('codem-lib:characterDeleted', citizenid)
     return true
 end
 

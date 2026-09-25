@@ -17,6 +17,12 @@
 Society = Society or {}
 
 local PROVIDERS = {
+    ['codem-supreme-banking'] = {
+        add    = function(a, n) return exports['codem-supreme-banking']:AddSocietyMoney(a, n) end,
+        remove = function(a, n) return exports['codem-supreme-banking']:RemoveSocietyMoney(a, n) end,
+        get    = function(a) return exports['codem-supreme-banking']:GetSocietyBalance(a) end,
+    },
+
     ['qb-banking'] = {
         add    = function(a, n) return exports['qb-banking']:AddMoney(a, n) end,
         remove = function(a, n) return exports['qb-banking']:RemoveMoney(a, n) end,
@@ -193,6 +199,7 @@ local ALIASES = {
 
 -- Detection order for 'auto'. First running resource wins.
 local CANDIDATES = {
+    'codem-supreme-banking',
     'qb-banking', 'qb-management', 'Renewed-Banking', 'okokBanking',
     'fd_banking', 'tgg-banking', 'tgiann-bank', 'qs-banking',
     'wasabi_banking', 'snipe-banking', 'crm-banking', 'kartik-banking',

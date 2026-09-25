@@ -74,6 +74,18 @@ RegisterNetEvent(Framework.Client.PlayerUnloadedEvent, function()
     for _, cb in ipairs(unloadedCallbacks) do CreateThread(cb) end
 end)
 
+local jobCallbacks = {}
+
+---Runs cb(job) each time the player's job or grade changes.
+---@param cb fun(job: table)
+function Framework.Client.OnJobChanged(cb)
+    jobCallbacks[#jobCallbacks + 1] = cb
+end
+
+RegisterNetEvent('esx:setJob', function(job)
+    for _, cb in ipairs(jobCallbacks) do CreateThread(function() cb(job) end) end
+end)
+
 ---Announces the spawn after a character was loaded, the way esx_multicharacter
 ---does (server spawn event, loadout restore, loading screen off).
 function Framework.Client.SpawnHandshake()

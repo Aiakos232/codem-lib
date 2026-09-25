@@ -244,16 +244,47 @@ function Framework.Server.AddMoney(src, amount, account)
     return true
 end
 
+local jobChanged = {}
+
+---Runs cb(src, job) whenever a character's job or grade changes.
+---@param cb fun(src: number, job: table)
+function Framework.Server.OnJobChanged(cb)
+    jobChanged[#jobChanged + 1] = cb
+end
+
+AddEventHandler('esx:setJob', function(src, job)
+    for _, cb in ipairs(jobChanged) do cb(src, job) end
+end)
+
+local moneyChanged = {}
+local SHARED_NAMES = { money = 'cash' }
+
+---Runs cb(src, account, amount, operation, reason) whenever a character's money
+---changes, from any script. account uses the shared names ('cash' | 'bank');
+---operation is 'add' | 'remove' | 'set', and for 'set' amount is the new total.
+---@param cb fun(src: number, account: string, amount: number, operation: string, reason?: string)
+function Framework.Server.OnMoneyChange(cb)
+    moneyChanged[#moneyChanged + 1] = cb
+end
+
+for event, operation in pairs({ ['esx:addAccountMoney'] = 'add', ['esx:removeAccountMoney'] = 'remove', ['esx:setAccountMoney'] = 'set' }) do
+    AddEventHandler(event, function(src, account, amount, reason)
+        if type(account) ~= 'string' then return end
+        for _, cb in ipairs(moneyChanged) do cb(src, SHARED_NAMES[account] or account, tonumber(amount) or 0, operation, reason) end
+    end)
+end
+
 -- No item functions here on purpose: item operations belong to the inventory
 -- module - use the CodemLib.Inventory.* API (Count/Add/Remove/...) instead.
 
----Register a server-side "use" handler for an inventory item. `cb` gets src.
+---Register a server-side "use" handler for an inventory item. `cb` gets src and,
+---when the inventory passes it (ox_inventory does), the used slot with `metadata`.
 ---@param name string
----@param cb fun(src: number)
+---@param cb fun(src: number, item?: table)
 function Framework.Server.CreateUseableItem(name, cb)
     if not name or not cb then return end
-    ESX.RegisterUsableItem(name, function(src)
-        cb(src)
+    ESX.RegisterUsableItem(name, function(src, _, item)
+        cb(src, type(item) == 'table' and item or nil)
     end)
 end
 

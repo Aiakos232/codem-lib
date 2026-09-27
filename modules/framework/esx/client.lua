@@ -75,16 +75,29 @@ RegisterNetEvent(Framework.Client.PlayerUnloadedEvent, function()
 end)
 
 local jobCallbacks = {}
+local jobPending = false
 
----Runs cb(job) each time the player's job or grade changes.
+---Runs cb(job) after the player's job, grade, duty or gang changes. Bursts are
+---coalesced: cb fires once, 250 ms later, with the job read from the framework.
 ---@param cb fun(job: table)
 function Framework.Client.OnJobChanged(cb)
     jobCallbacks[#jobCallbacks + 1] = cb
 end
 
-RegisterNetEvent('esx:setJob', function(job)
-    for _, cb in ipairs(jobCallbacks) do CreateThread(function() cb(job) end) end
-end)
+local function jobChanged()
+    if jobPending or #jobCallbacks == 0 then return end
+    jobPending = true
+    SetTimeout(250, function()
+        jobPending = false
+        local job = Framework.Client.GetPlayerJob()
+        for _, cb in ipairs(jobCallbacks) do
+            local ok, err = pcall(cb, job)
+            if not ok then print(('[codem-lib] OnJobChanged: %s'):format(err)) end
+        end
+    end)
+end
+
+RegisterNetEvent('esx:setJob', jobChanged)
 
 ---Announces the spawn after a character was loaded, the way esx_multicharacter
 ---does (server spawn event, loadout restore, loading screen off).

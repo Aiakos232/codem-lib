@@ -89,12 +89,16 @@ Inventory.itemCatalog = function()
     local items = exports['codem-inventoryv2']:Items()
     if type(items) ~= 'table' then return {} end
 
+    local ok, base = pcall(function() return exports['codem-inventoryv2']:imagePath() end)
+    if not ok or type(base) ~= 'string' or base == '' then base = 'nui://codem-inventory-images/images' end
+    if base:sub(-1) ~= '/' then base = base .. '/' end
+
     local out = {}
     for name, item in pairs(items) do
         out[name] = {
             label = item.label or name,
             weight = (tonumber(item.weight) or 0) / 1000,
-            image = LibItemImage('nui://codem-inventoryv2/web/images/', name, item.client),
+            image = LibItemImage(base, name, item),
         }
     end
     return out

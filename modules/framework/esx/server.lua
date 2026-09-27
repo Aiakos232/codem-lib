@@ -59,8 +59,6 @@ function Framework.Server.GetName(src)
     return GetPlayerName(src) or ("Player %d"):format(src)
 end
 
-
-
 function Framework.Server.GetPlayerJob(src)
     local xPlayer = Framework.Server.GetPlayer(src)
     if not xPlayer or not xPlayer.job then return nil end
@@ -244,17 +242,33 @@ function Framework.Server.AddMoney(src, amount, account)
     return true
 end
 
-local jobChanged = {}
+local jobCallbacks = {}
+local jobPending = {}
 
----Runs cb(src, job) whenever a character's job or grade changes.
+---Runs cb(src, job) after a character's job, grade, duty or gang changes. Bursts
+---are coalesced per player: cb fires once, 250 ms later, with the job read from
+---the framework.
 ---@param cb fun(src: number, job: table)
 function Framework.Server.OnJobChanged(cb)
-    jobChanged[#jobChanged + 1] = cb
+    jobCallbacks[#jobCallbacks + 1] = cb
 end
 
-AddEventHandler('esx:setJob', function(src, job)
-    for _, cb in ipairs(jobChanged) do cb(src, job) end
-end)
+local function jobChanged(src)
+    src = tonumber(src)
+    if not src or jobPending[src] or #jobCallbacks == 0 then return end
+    jobPending[src] = true
+    SetTimeout(250, function()
+        jobPending[src] = nil
+        if not GetPlayerName(src) then return end
+        local job = Framework.Server.GetPlayerJob(src)
+        for _, cb in ipairs(jobCallbacks) do
+            local ok, err = pcall(cb, src, job)
+            if not ok then print(('[codem-lib] OnJobChanged: %s'):format(err)) end
+        end
+    end)
+end
+
+AddEventHandler('esx:setJob', jobChanged)
 
 local moneyChanged = {}
 local SHARED_NAMES = { money = 'cash' }
@@ -424,7 +438,6 @@ function Framework.Server.GetJobGrades(job)
     end
     return out
 end
-
 
 --------------------------------------------------------------------------------
 -- Permissions

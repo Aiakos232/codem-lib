@@ -307,6 +307,12 @@ else
         ---@param vehicle number vehicle entity
         ---@param plate? string
         Give = function(vehicle, plate) return exports[LIB]:GiveKeys(vehicle, plate) end,
+        ---Keys for a vehicle coming back out of a garage. Providers that track
+        ---where the key was left (tgiann-hotwire) put it back there instead of
+        ---handing out a new one; the rest give keys as usual.
+        ---@param vehicle number
+        ---@param plate? string
+        Restore = function(vehicle, plate) return exports[LIB]:RestoreKeys(vehicle, plate) end,
         ---@param vehicle number
         ---@param plate? string
         Remove = function(vehicle, plate) return exports[LIB]:RemoveKeys(vehicle, plate) end,

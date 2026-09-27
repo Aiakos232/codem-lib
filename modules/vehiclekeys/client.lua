@@ -4,6 +4,7 @@
 
     Exports:
       GiveKeys(vehicle, plate?)
+      RestoreKeys(vehicle, plate?)  -- a garage handing back a stored vehicle; falls back to give
       RemoveKeys(vehicle, plate?)
 
     Providers that need a server export (qbx_vehiclekeys, ND_Core) fall back
@@ -57,8 +58,9 @@ local PROVIDERS = {
     },
 
     ['tgiann-hotwire'] = {
-        give   = function(v, p) exports['tgiann-hotwire']:GiveKeyPlate(plateOf(v, p), true) end,
-        remove = function(v) exports['tgiann-hotwire']:SetKeyInIgnition(v, false) end,
+        give    = function(v, p) exports['tgiann-hotwire']:GiveKeyPlate(plateOf(v, p), true) end,
+        restore = function(v, p) exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v, plateOf(v, p)) end,
+        remove  = function(v) exports['tgiann-hotwire']:SetKeyInIgnition(v, false) end,
     },
 
     ['0r-vehiclekeys'] = {
@@ -194,6 +196,7 @@ local function dispatch(verb, vehicle, plate)
             :format(verb, tostring(name)))
         return false
     end
+    if verb == 'restore' and not p.restore then verb = 'give' end
     local fn = p[verb]
     if not fn then
         print(('[codem-lib] Keys.%s: provider "%s" does not support this action'):format(verb, name))
@@ -208,6 +211,7 @@ local function dispatch(verb, vehicle, plate)
 end
 
 exports('GiveKeys', function(vehicle, plate) return dispatch('give', vehicle, plate) end)
+exports('RestoreKeys', function(vehicle, plate) return dispatch('restore', vehicle, plate) end)
 exports('RemoveKeys', function(vehicle, plate) return dispatch('remove', vehicle, plate) end)
 
 -- The server forwards here when the active provider only has a client API.

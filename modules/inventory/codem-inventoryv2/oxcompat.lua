@@ -56,9 +56,9 @@ local function install()
             -- The target is resolved once and kept: indexing `exports[TARGET]`
             -- on every call costs an export lookup, and a script that asks for
             -- one of these each frame pays it every frame.
-            local fn
+            local ready, fn = pcall(function() return exports[TARGET][name] end)
+            if not ready or not fn then return end
             setCallback(function(...)
-                if not fn then fn = exports[TARGET][name] end
                 return fn(nil, ...)
             end)
         end)

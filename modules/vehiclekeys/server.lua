@@ -162,6 +162,18 @@ exports('RemoveKeys', removeKeys)
 
 -- Providers that need a server export fall back to these events from the
 -- client side (qbx_vehiclekeys / ND_Core): net id -> entity + source player.
+AddEventHandler('tgiann-hotwire:server:checkKeyInIgnitionWhenSpawn', function(netId)
+    local src = source
+    local entity = NetworkGetEntityFromNetworkId(tonumber(netId) or 0)
+    local plate = entity ~= 0 and DoesEntityExist(entity) and GetVehicleNumberPlateText(entity) or nil
+    print(('[keydebug] server hotwire check src=%s netId=%s entity=%s plate=%q'):format(tostring(src), tostring(netId), tostring(entity), tostring(plate)))
+    if plate and MySQL then
+        local trimmed = plate:gsub('^%s+', ''):gsub('%s+$', '')
+        local rows = MySQL.query.await('SELECT plate, keyId, ignition FROM tgiann_hotwire_vehiclekeys WHERE TRIM(plate) = ?', { trimmed })
+        print(('[keydebug] server hotwire row for %q: %s'):format(trimmed, json.encode(rows or {})))
+    end
+end)
+
 RegisterNetEvent('codem-lib:vkeys:give', function(netId)
     local src = source
     local vehicle = NetworkGetEntityFromNetworkId(netId)

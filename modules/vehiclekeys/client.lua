@@ -23,20 +23,38 @@ local function trimmed(plate)
     return plate and tostring(plate):gsub('^%s+', ''):gsub('%s+$', ''):upper() or nil
 end
 
+local asked, answers = 0, {}
+
+RegisterNetEvent('codem-lib:vkeys:plate', function(ticket, plate)
+    answers[ticket] = plate or false
+end)
+
+local function serverPlate(netId)
+    asked = asked + 1
+    local ticket = asked
+    TriggerServerEvent('codem-lib:vkeys:plate', netId, ticket)
+    local deadline = GetGameTimer() + 1000
+    while answers[ticket] == nil and GetGameTimer() < deadline do Wait(0) end
+    local plate = answers[ticket]
+    answers[ticket] = nil
+    return plate or nil
+end
+
 local function settled(vehicle, plate)
     local want = trimmed(plate)
-    local deadline = GetGameTimer() + 5000
+    local deadline = GetGameTimer() + 8000
     while GetGameTimer() < deadline do
         if not DoesEntityExist(vehicle) then return false end
         local netId = NetworkGetNetworkIdFromEntity(vehicle)
-        if netId ~= 0 and NetworkDoesEntityExistWithNetworkId(netId)
-            and (not want or trimmed(GetVehicleNumberPlateText(vehicle)) == want) then
-            Wait(250)
-            return true
+        if netId ~= 0 and NetworkDoesEntityExistWithNetworkId(netId) then
+            if not want then return true end
+            if trimmed(GetVehicleNumberPlateText(vehicle)) == want then
+                if trimmed(serverPlate(netId)) == want then return true end
+            end
         end
-        Wait(50)
+        Wait(250)
     end
-    return DoesEntityExist(vehicle)
+    return false
 end
 
 local function viaServer(event)
@@ -80,19 +98,7 @@ local PROVIDERS = {
     ['tgiann-hotwire'] = {
         give    = function(v, p) exports['tgiann-hotwire']:GiveKeyPlate(plateOf(v, p), true) end,
         restore = function(v, p)
-            print(('[keydebug] restore start vehicle=%s want=%q now=%q netId=%s'):format(tostring(v), tostring(p),
-                tostring(DoesEntityExist(v) and GetVehicleNumberPlateText(v)), tostring(DoesEntityExist(v) and NetworkGetNetworkIdFromEntity(v))))
-            local ok = settled(v, p)
-            print(('[keydebug] restore settled=%s now=%q netId=%s'):format(tostring(ok),
-                tostring(DoesEntityExist(v) and GetVehicleNumberPlateText(v)), tostring(DoesEntityExist(v) and NetworkGetNetworkIdFromEntity(v))))
-            if ok then exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v) end
-            print('[keydebug] CheckKeyInIgnitionWhenSpawn called=' .. tostring(ok))
-            SetTimeout(2000, function()
-                local has, inIgnition = 'n/a', 'n/a'
-                pcall(function() has = tostring(exports['tgiann-hotwire']:HaveKeyVehicle(v)) end)
-                pcall(function() inIgnition = tostring(exports['tgiann-hotwire']:KeyInIgnition(v)) end)
-                print(('[keydebug] 2s later HaveKeyVehicle=%s KeyInIgnition=%s'):format(has, inIgnition))
-            end)
+            if settled(v, p) then exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v) end
         end,
         remove  = function(v) exports['tgiann-hotwire']:SetKeyInIgnition(v, false) end,
     },
@@ -224,7 +230,6 @@ end
 
 local function dispatch(verb, vehicle, plate)
     local name = provider()
-    print(('[keydebug] Keys.%s provider=%s plate=%s'):format(verb, tostring(name), tostring(plate)))
     local p = PROVIDERS[name]
     if not p then
         print(('[codem-lib] Keys.%s: no vehicle key provider for "%s" - set LibConfig.VehicleKeys.provider')

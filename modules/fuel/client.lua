@@ -14,6 +14,12 @@ local function viaExport(resource, fnName)
     end
 end
 
+local function readExport(resource, fnName)
+    return function(v)
+        return exports[resource][fnName or 'GetFuel'](exports[resource], v)
+    end
+end
+
 -- v = vehicle entity, n = fuel amount (0-100). Providers missing here are
 -- server-side only; the client export forwards to the server for them.
 -- `get` reads the provider's OWN idea of the level. That matters: ox_fuel
@@ -33,10 +39,10 @@ local PROVIDERS = {
         end,
     },
 
-    ['cdn-fuel']         = { set = viaExport('cdn-fuel') },
+    ['cdn-fuel']         = { set = viaExport('cdn-fuel'), get = readExport('cdn-fuel') },
     ['qb-fuel']          = { set = viaExport('qb-fuel') },
-    ['LegacyFuel']       = { set = viaExport('LegacyFuel') },
-    ['lc_fuel']          = { set = viaExport('lc_fuel') },
+    ['LegacyFuel']       = { set = viaExport('LegacyFuel'), get = readExport('LegacyFuel') },
+    ['lc_fuel']          = { set = viaExport('lc_fuel'), get = readExport('lc_fuel') },
     ['Renewed-Fuel']     = { set = viaExport('Renewed-Fuel') },
     ['myFuel']           = { set = viaExport('myFuel') },
     ['okokGasStation']   = { set = viaExport('okokGasStation') },

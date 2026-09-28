@@ -8,8 +8,14 @@
 --                                           script, so its own idea of the skin
 --                                           (esx skinchanger, qb-clothing, ...)
 --                                           moves with the ped
---   SavePedClothing()                       persist the current look through the
---                                           appearance script's own save path
+--   SavePedClothing(components?, props?)    persist the current look through the
+--                                           appearance script's own save path;
+--                                           the lists given replace what the ped
+--                                           wears on those slots in the saved skin
+--   IsClothingBlocked(kind, id, drawable, texture)
+--                                           whether the appearance script's
+--                                           blacklist keeps this piece from the
+--                                           player ('component' | 'prop')
 --   codem-lib:wardrobe:changed              local event fired when the appearance
 --                                           script dressed the player on its own
 --                                           (spawn, shop, outfit, creator)
@@ -368,9 +374,13 @@ local ADAPTERS = {
     ['codem-clothing'] = {
         set = illeniumSet('codem-clothing'),
         -- only the clothes are written, the rest of the stored skin is left alone
-        save = function()
-            if tryExport('codem-clothing', 'savePedClothing') then return true end
+        save = function(components, props)
+            if tryExport('codem-clothing', 'savePedClothing', components, props) then return true end
             return illeniumSave('codem-clothing')()
+        end,
+        blocked = function(kind, id, drawable, texture)
+            local ok, result = tryExport('codem-clothing', 'isClothingBlocked', kind, id, drawable, texture)
+            return ok and result == true
         end,
         events = { 'codem-clothing:client:appearanceChanged' },
     },
@@ -543,16 +553,24 @@ local function setClothing(ped, components, props)
     return true
 end
 
-local function saveClothing()
+local function saveClothing(components, props)
     local a = adapter()
     if not a or not a.save then return false end
-    local ok, result = pcall(a.save)
+    local ok, result = pcall(a.save, components, props)
+    return ok and result == true
+end
+
+local function clothingBlocked(kind, id, drawable, texture)
+    local a = adapter()
+    if not a or not a.blocked then return false end
+    local ok, result = pcall(a.blocked, kind, id, drawable, texture)
     return ok and result == true
 end
 
 exports('GetPedClothing', getClothing)
 exports('SetPedClothing', setClothing)
 exports('SavePedClothing', saveClothing)
+exports('IsClothingBlocked', clothingBlocked)
 
 local function setAppearance(ped, appearance)
     ped = ped or PlayerPedId()

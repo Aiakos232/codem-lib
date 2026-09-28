@@ -355,8 +355,16 @@ else
         ---@param components? { component_id:number, drawable:number, texture?:number, palette?:number }[]
         ---@param props? { prop_id:number, drawable:number, texture?:number }[] drawable -1 clears the prop
         SetClothing = function(ped, components, props) return exports[LIB]:SetPedClothing(ped, components, props) end,
+        ---@param components? { component_id:number, drawable:number, texture?:number, collection?:string, localIndex?:number }[] saved on those slots instead of what the ped wears
+        ---@param props? { prop_id:number, drawable:number, texture?:number, collection?:string, localIndex?:number }[]
         ---@return boolean
-        SaveClothing = function() return exports[LIB]:SavePedClothing() end,
+        SaveClothing = function(components, props) return exports[LIB]:SavePedClothing(components, props) end,
+        ---@param kind 'component'|'prop'
+        ---@param id number
+        ---@param drawable number
+        ---@param texture? number
+        ---@return boolean blocked by the appearance script's blacklist for this player
+        IsBlocked = function(kind, id, drawable, texture) return exports[LIB]:IsClothingBlocked(kind, id, drawable, texture) end,
         SetAppearance = function(ped, appearance) return exports[LIB]:setPedAppearance(ped, appearance) end,
         -- local event fired after the appearance script dressed the player on its own
         ChangedEvent = 'codem-lib:wardrobe:changed',

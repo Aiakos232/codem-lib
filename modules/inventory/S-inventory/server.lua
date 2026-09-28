@@ -115,3 +115,17 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) si:RemoveItemFromStash(id, name, count, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local id = tostring(stashId)
+    exports['S-Inventory']:RegisterStash(id, invData and invData.label or id, invData and (invData.maxweight or invData.maxWeight or invData.weight) or 100000, id)
+    exports['S-Inventory']:OpenStashInventory(src, id, id)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    local id = tostring(stashId)
+    exports['S-Inventory']:DeleteAllItems(id, id)
+    return true
+end

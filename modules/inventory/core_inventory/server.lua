@@ -94,3 +94,20 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count) core:removeItem(id, name, count) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    exports['core_inventory']:openInventory(src, tostring(stashId), 'stash', invData and invData.label or nil, nil, true)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    exports['core_inventory']:clearInventory(tostring(stashId))
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    if not slots then return false end
+    exports['core_inventory']:updateInventorySize(tostring(stashId), slots, 10)
+    return true
+end

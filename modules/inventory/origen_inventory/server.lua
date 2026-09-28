@@ -88,3 +88,38 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, meta, slot) og:removeItem(id, name, count, meta, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local data
+    if type(invData) == 'table' then
+        data = { label = invData.label, slots = invData.slots, maxweight = invData and (invData.maxweight or invData.maxWeight or invData.weight) }
+        if next(data) == nil then data = nil end
+    end
+    exports['origen_inventory']:OpenInventory(src, stashId, data)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    return exports['origen_inventory']:clearInventory(stashId) ~= false
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    local og = exports['origen_inventory']
+    if slots then og:setMaxSlots(stashId, slots) end
+    if weight then og:setMaxWeight(stashId, weight) end
+    return true
+end
+
+Inventory.guardStashes = function(pattern, allow)
+    return exports['origen_inventory']:registerHook('openInventory', function(payload)
+        local ok, yes = pcall(allow, payload.source, payload.inventoryId)
+        if not (ok and yes == true) then return false end
+    end, { inventoryFilter = { pattern }, typeFilter = { stash = true } })
+end
+
+Inventory.unguardStashes = function(handle)
+    if handle == nil then return false end
+    exports['origen_inventory']:removeHooks(handle)
+    return true
+end

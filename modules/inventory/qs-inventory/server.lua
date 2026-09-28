@@ -106,3 +106,8 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) qs:RemoveItemIntoStash(id, name, count, slot) end,
     })
 end
+
+Inventory.clearStash = function(stashId)
+    exports['qs-inventory']:ClearOtherInventory('stash', stashId)
+    return true
+end

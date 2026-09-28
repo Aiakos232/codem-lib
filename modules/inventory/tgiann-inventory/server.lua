@@ -263,3 +263,28 @@ Inventory.moveStash = function(fromId, toId)
         end,
     })
 end
+
+Inventory.clearStash = function(stashId)
+    exports['tgiann-inventory']:ClearInventory(stashId)
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    local tg = exports['tgiann-inventory']
+    if slots then tg:SetSlotCount(stashId, slots) end
+    if weight then tg:SetMaxWeight(stashId, weight) end
+    return true
+end
+
+Inventory.guardStashes = function(pattern, allow)
+    return exports['tgiann-inventory']:RegisterHook('openInventory', function(payload)
+        local ok, yes = pcall(allow, payload.source, payload.inventoryId)
+        return ok and yes == true
+    end, { typeFilter = { stash = true }, inventoryFilter = { pattern } })
+end
+
+Inventory.unguardStashes = function(handle)
+    if handle == nil then return false end
+    exports['tgiann-inventory']:RemoveHooks(handle)
+    return true
+end

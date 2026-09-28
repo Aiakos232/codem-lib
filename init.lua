@@ -273,6 +273,10 @@ if IsDuplicityVersion() then
         end,
         ---@param src number, stashId string, invData? table @return boolean handled
         OpenStashServer = function(src, stashId, invData) return exports[LIB]:OpenStashServer(src, stashId, invData) end,
+        ClearStash = function(stashId) return exports[LIB]:ClearStash(stashId) end,
+        ResizeStash = function(stashId, slots, weight) return exports[LIB]:ResizeStash(stashId, slots, weight) end,
+        GuardStashes = function(pattern, allow) return exports[LIB]:GuardStashes(pattern, allow) end,
+        UnguardStashes = function(handle) return exports[LIB]:UnguardStashes(handle) end,
     }
 
     local PREVIEW_WRAP_POLL_MS, PREVIEW_WRAP_TRIES = 100, 50

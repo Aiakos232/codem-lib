@@ -88,3 +88,28 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) ak:RemoveItem(id, name, count, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local data
+    if type(invData) == 'table' then
+        data = { label = invData.label or tostring(stashId), maxWeight = invData and (invData.maxweight or invData.maxWeight or invData.weight), slots = invData.slots, type = 'stash' }
+    end
+    exports['ak47_inventory']:OpenInventory(src, stashId, data)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    exports['ak47_inventory']:LoadInventory(stashId)
+    exports['ak47_inventory']:ClearInventory(stashId)
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    local ak = exports['ak47_inventory']
+    ak:LoadInventory(stashId)
+    if slots then ak:SetSlotCount(stashId, slots) end
+    if weight then ak:SetMaxWeight(stashId, weight) end
+    ak:SaveInventory(stashId)
+    return true
+end

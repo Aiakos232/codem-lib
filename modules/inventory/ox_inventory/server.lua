@@ -76,9 +76,36 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
     return true
 end
 
----Server-side stash open; ox opens client-side, nothing to do.
+---Server-side stash open through the inventory's own force-open, so the
 Inventory.openStashServer = function(src, stashId, invData)
-    return false
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    exports['ox_inventory']:forceOpenInventory(src, 'stash', stashId)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    exports['ox_inventory']:GetInventory(stashId, false)
+    exports['ox_inventory']:ClearInventory(stashId)
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    exports['ox_inventory']:GetInventory(stashId, false)
+    if slots then exports['ox_inventory']:SetSlotCount(stashId, slots) end
+    if weight then exports['ox_inventory']:SetMaxWeight(stashId, weight) end
+    return true
+end
+
+Inventory.guardStashes = function(pattern, allow)
+    return exports['ox_inventory']:registerHook('openInventory', function(payload)
+        local ok, yes = pcall(allow, payload.source, payload.inventoryId)
+        return ok and yes == true
+    end, { inventoryFilter = { pattern } })
+end
+
+Inventory.unguardStashes = function(handle)
+    exports['ox_inventory']:removeHooks(handle)
+    return true
 end
 
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>

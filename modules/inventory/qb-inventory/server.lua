@@ -196,3 +196,76 @@ Inventory.stashItems = function(stashId)
     if type(inv) ~= 'table' then return nil end
     return inv.items or inv
 end
+
+local function QbVersion()
+    local a, b, c = (GetResourceMetadata('qb-inventory', 'version', 0) or ''):match('^(%d+)%.?(%d*)%.?(%d*)')
+    return (tonumber(a) or 1) * 10000 + (tonumber(b) or 0) * 100 + (tonumber(c) or 0)
+end
+
+Inventory.clearStash = function(stashId)
+    local id = tostring(stashId)
+    if QbVersion() >= 20000 then
+        local qb = exports['qb-inventory']
+        local holder
+        pcall(function()
+            local inv = qb:GetInventory(id)
+            if type(inv) == 'table' and type(inv.isOpen) == 'number' then holder = inv.isOpen end
+        end)
+        if not pcall(function() qb:ClearStash(id) end) then return false end
+        if holder then pcall(function() qb:CloseInventory(holder, id) end) end
+        return true
+    end
+    MySQL.update.await('UPDATE stashitems SET items = ? WHERE stash = ?', { '[]', id })
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    if QbVersion() < 20200 then return false end
+    exports['qb-inventory']:CreateInventory(tostring(stashId), { slots = slots, maxweight = weight })
+    return true
+end
+
+local guards, guardSeq, guardHook = {}, 0, nil
+
+local function GuardHook(_, payload)
+    if type(payload) ~= 'table' or type(payload.inventoryId) ~= 'string' then return end
+    for _, g in pairs(guards) do
+        if payload.inventoryId:match(g.pattern) then
+            local ok, yes = pcall(g.allow, payload.source, payload.inventoryId)
+            if not ok or yes ~= true then return false end
+        end
+    end
+end
+
+local function EnsureGuardHook()
+    if guardHook or not next(guards) then return guardHook ~= nil end
+    local ok, idx = pcall(function() return exports['qb-inventory']:AddHook('InventoryOpened', GuardHook) end)
+    guardHook = ok and idx or nil
+    return guardHook ~= nil
+end
+
+Inventory.guardStashes = function(pattern, allow)
+    if type(pattern) ~= 'string' or not allow then return nil end
+    guardSeq = guardSeq + 1
+    guards[guardSeq] = { pattern = pattern, allow = allow }
+    if not EnsureGuardHook() then
+        guards[guardSeq] = nil
+        return nil
+    end
+    return guardSeq
+end
+
+Inventory.unguardStashes = function(handle)
+    guards[handle] = nil
+    if guardHook and not next(guards) then
+        pcall(function() exports['qb-inventory']:RemoveHook('InventoryOpened', guardHook) end)
+        guardHook = nil
+    end
+    return true
+end
+
+AddEventHandler('onResourceStart', function(res)
+    if res ~= 'qb-inventory' then return end
+    guardHook = nil
+    EnsureGuardHook()
+end)

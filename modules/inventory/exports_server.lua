@@ -61,6 +61,23 @@ exports('RegisterStash', function(stashId, label, slots, weight, groups, coords,
 end)
 exports('OpenStashServer', function(src, stashId, invData) return call('openStashServer', src, stashId, invData) end)
 
+local function optional(fnName, ...)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider[fnName] then return nil end
+    local ok, out = pcall(provider[fnName], ...)
+    if not ok then
+        print(('[codem-lib] Inventory.%s via "%s" failed: %s'):format(fnName, res, tostring(out)))
+        return nil
+    end
+    return out
+end
+
+exports('ClearStash', function(stashId) return optional('clearStash', stashId) end)
+exports('ResizeStash', function(stashId, slots, weight) return optional('resizeStash', stashId, slots, weight) end)
+exports('GuardStashes', function(pattern, allow) return optional('guardStashes', pattern, allow) end)
+exports('UnguardStashes', function(handle) return optional('unguardStashes', handle) end)
+
 --[[
     Move every item from one stash to another.
 

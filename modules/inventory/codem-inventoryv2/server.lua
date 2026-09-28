@@ -76,9 +76,36 @@ Inventory.registerStash = function(stashId, label, slots, weight, groups, coords
     return true
 end
 
----Server-side stash open; ox opens client-side, nothing to do.
+---Server-side stash open through the inventory's own force-open, so the
 Inventory.openStashServer = function(src, stashId, invData)
-    return false
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    exports['codem-inventoryv2']:forceOpenInventory(src, 'stash', stashId)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    exports['codem-inventoryv2']:GetInventory(stashId, false)
+    exports['codem-inventoryv2']:ClearInventory(stashId)
+    return true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    exports['codem-inventoryv2']:GetInventory(stashId, false)
+    if slots then exports['codem-inventoryv2']:SetSlotCount(stashId, slots) end
+    if weight then exports['codem-inventoryv2']:SetMaxWeight(stashId, weight) end
+    return true
+end
+
+Inventory.guardStashes = function(pattern, allow)
+    return exports['codem-inventoryv2']:registerHook('openInventory', function(payload)
+        local ok, yes = pcall(allow, payload.source, payload.inventoryId)
+        return ok and yes == true
+    end, { inventoryFilter = { pattern } })
+end
+
+Inventory.unguardStashes = function(handle)
+    exports['codem-inventoryv2']:removeHooks(handle)
+    return true
 end
 
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>

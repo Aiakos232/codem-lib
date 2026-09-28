@@ -137,3 +137,14 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) jpr:RemoveItemIntoStash(id, name, count, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local id = tostring(stashId)
+    exports['jpr-inventory']:OpenInventory(src, id, {
+        label = invData and invData.label or id,
+        maxweight = invData and (invData.maxweight or invData.maxWeight or invData.weight) or 100000,
+        slots = invData and invData.slots or 50,
+    })
+    return true
+end

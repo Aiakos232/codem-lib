@@ -97,3 +97,26 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, meta, slot) jk:removeItem(id, name, count, meta, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local jk = exports['jaksam_inventory']
+    if not jk:getInventory(stashId) then
+        local grams = invData and (invData.maxweight or invData.maxWeight or invData.weight)
+        jk:createInventory(tostring(stashId), invData and invData.label or tostring(stashId), {
+            maxWeight = grams and grams / 1000 or nil,
+            maxSlots = invData and invData.slots or nil,
+        }, nil, 'stash')
+    end
+    jk:forceOpenInventory(src, stashId)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    return exports['jaksam_inventory']:clearInventory(stashId) == true
+end
+
+Inventory.resizeStash = function(stashId, slots, weight)
+    if not weight then return false end
+    return exports['jaksam_inventory']:setInventoryMaxWeight(stashId, weight / 1000) == true
+end

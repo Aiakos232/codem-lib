@@ -145,3 +145,20 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) ps:RemoveItem(id, name, count, slot or false) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    local id = tostring(stashId)
+    exports['ps-inventory']:OpenInventory('stash', id, {
+        maxweight = invData and (invData.maxweight or invData.maxWeight or invData.weight) or 1000000,
+        slots = invData and invData.slots or 50,
+    }, src)
+    TriggerClientEvent('ps-inventory:client:SetCurrentStash', src, id)
+    TriggerClientEvent('inventory:client:SetCurrentStash', src, id)
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    MySQL.update.await('UPDATE stashitems SET items = ? WHERE stash = ?', { '[]', tostring(stashId) })
+    return true
+end

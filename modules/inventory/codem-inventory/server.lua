@@ -109,3 +109,15 @@ Inventory.moveStash = function(fromId, toId)
         remove = function(id, name, count, _, slot) cm:RemoveItem(id, name, count, slot) end,
     })
 end
+
+Inventory.openStashServer = function(src, stashId, invData)
+    if type(stashId) ~= 'string' and type(stashId) ~= 'number' then return false end
+    invData = type(invData) == 'table' and invData or {}
+    TriggerEvent('codem-inventory:server:openserverstash', src, stashId, invData.slots, invData.maxweight or invData.maxWeight or invData.weight, invData.label or 'STASH')
+    return true
+end
+
+Inventory.clearStash = function(stashId)
+    exports['codem-inventory']:UpdateStash(stashId, {})
+    return true
+end

@@ -167,6 +167,18 @@ RegisterNetEvent('codem-lib:vkeys:plate', function(netId, ticket)
     TriggerClientEvent('codem-lib:vkeys:plate', src, ticket, plate)
 end)
 
+RegisterNetEvent('codem-lib:vkeys:known', function(plate, ticket)
+    local src = source
+    local yes = true
+    if type(plate) == 'string' and plate ~= '' and GetResourceState('tgiann-hotwire') == 'started' then
+        local ok, count = pcall(function()
+            return MySQL.scalar.await('SELECT COUNT(*) FROM `tgiann_hotwire_vehiclekeys` WHERE TRIM(`plate`) = ?', { plate })
+        end)
+        if ok and tonumber(count) == 0 then yes = false end
+    end
+    TriggerClientEvent('codem-lib:vkeys:known', src, ticket, yes)
+end)
+
 -- Providers that need a server export fall back to these events from the
 -- client side (qbx_vehiclekeys / ND_Core): net id -> entity + source player.
 RegisterNetEvent('codem-lib:vkeys:give', function(netId)

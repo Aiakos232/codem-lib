@@ -40,6 +40,24 @@ local function serverPlate(netId)
     return plate or nil
 end
 
+local known = {}
+
+RegisterNetEvent('codem-lib:vkeys:known', function(ticket, yes)
+    known[ticket] = yes == true
+end)
+
+local function keyExists(plate)
+    asked = asked + 1
+    local ticket = asked
+    TriggerServerEvent('codem-lib:vkeys:known', plate, ticket)
+    local deadline = GetGameTimer() + 2000
+    while known[ticket] == nil and GetGameTimer() < deadline do Wait(0) end
+    local yes = known[ticket]
+    known[ticket] = nil
+    if yes == nil then return true end
+    return yes
+end
+
 local function settled(vehicle, plate)
     local want = trimmed(plate)
     local deadline = GetGameTimer() + 8000
@@ -99,6 +117,11 @@ local PROVIDERS = {
         give    = function(v, p) exports['tgiann-hotwire']:GiveKeyPlate(plateOf(v, p), true) end,
         restore = function(v, p)
             if not settled(v, p) then return end
+            local plate = plateOf(v, p)
+            if not keyExists(trimmed(plate)) then
+                exports['tgiann-hotwire']:GiveKeyPlate(plate, true)
+                return
+            end
             exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v)
 
             local deadline = GetGameTimer() + 3000

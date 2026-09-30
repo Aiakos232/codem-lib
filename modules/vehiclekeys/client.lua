@@ -98,7 +98,17 @@ local PROVIDERS = {
     ['tgiann-hotwire'] = {
         give    = function(v, p) exports['tgiann-hotwire']:GiveKeyPlate(plateOf(v, p), true) end,
         restore = function(v, p)
-            if settled(v, p) then exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v) end
+            if not settled(v, p) then return end
+            exports['tgiann-hotwire']:CheckKeyInIgnitionWhenSpawn(v)
+
+            local deadline = GetGameTimer() + 3000
+            while GetGameTimer() < deadline and DoesEntityExist(v) do
+                if Entity(v).state.keyInIgnition then
+                    SetVehicleDoorsLocked(v, 1)
+                    return
+                end
+                Wait(100)
+            end
         end,
         remove  = function(v) exports['tgiann-hotwire']:SetKeyInIgnition(v, false) end,
     },

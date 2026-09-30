@@ -45,7 +45,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['jpr-inventory']:AddItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
+    return exports['jpr-inventory']:AddItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
 end
 
 --@param playerId: number [existing player id]
@@ -54,7 +54,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['jpr-inventory']:RemoveItem(playerId, itemName, itemCount, itemSlot)
+    return exports['jpr-inventory']:RemoveItem(playerId, itemName, itemCount, itemSlot)
 end
 
 --@param playerId: number [existing player id]

@@ -93,6 +93,7 @@ function Framework.Server.GetPlayerJob(src)
         name = job.name,
         label = job.label,
         grade = job.grade and job.grade.level or 0,
+        gradeLabel = job.grade and (job.grade.name or job.grade.label) or nil,
         onduty = job.onduty or false,
         isboss = job.isboss == true,
     }
@@ -629,9 +630,13 @@ local function dbJobEmployees(job)
             -- tostring: numeric citizenid columns come back as Lua numbers,
             -- while the live PlayerData may hold a string - the dedup in
             -- GetJobEmployees needs both sides on one key type.
-            cid   = tostring(row.citizenid),
-            name  = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or tostring(row.citizenid),
-            grade = okJ and (jdata.grade and (jdata.grade.name or jdata.grade.level)) or 0,
+            cid        = tostring(row.citizenid),
+            name       = okC and ('%s %s'):format(info.firstname or '', info.lastname or '') or tostring(row.citizenid),
+            grade      = okJ and (jdata.grade and (jdata.grade.name or jdata.grade.level)) or 0,
+            firstname  = okC and info.firstname or nil,
+            lastname   = okC and info.lastname or nil,
+            level      = okJ and tonumber(jdata.grade and jdata.grade.level) or 0,
+            gradeLabel = okJ and jdata.grade and (jdata.grade.name or jdata.grade.label) or nil,
         }
     end
 
@@ -665,9 +670,13 @@ function Framework.Server.GetJobEmployees(job)
             if pd.job and pd.job.name == job then
                 local ci = pd.charinfo or {}
                 online[cid] = {
-                    cid   = cid,
-                    name  = ('%s %s'):format(ci.firstname or '', ci.lastname or ''):gsub('%s+$', ''),
-                    grade = pd.job.grade and (pd.job.grade.name or pd.job.grade.level) or 0,
+                    cid        = cid,
+                    name       = ('%s %s'):format(ci.firstname or '', ci.lastname or ''):gsub('%s+$', ''),
+                    grade      = pd.job.grade and (pd.job.grade.name or pd.job.grade.level) or 0,
+                    firstname  = ci.firstname,
+                    lastname   = ci.lastname,
+                    level      = tonumber(pd.job.grade and pd.job.grade.level) or 0,
+                    gradeLabel = pd.job.grade and (pd.job.grade.name or pd.job.grade.label) or nil,
                 }
             else
                 online[cid] = false
@@ -1070,6 +1079,52 @@ local function sourceOfCid(cid)
     local player = playerByCid(cid)
     local src = player and player.PlayerData and player.PlayerData.source
     return tonumber(src)
+end
+
+function Framework.Server.GetSourceByCid(cid)
+    if type(cid) ~= 'string' and type(cid) ~= 'number' then return nil end
+    return sourceOfCid(cid)
+end
+
+local function decodeColumn(value)
+    if type(value) == 'table' then return value end
+    if type(value) ~= 'string' then return {} end
+    local ok, decoded = pcall(json.decode, value)
+    return ok and type(decoded) == 'table' and decoded or {}
+end
+
+function Framework.Server.GetCharacter(cid)
+    if type(cid) ~= 'string' and type(cid) ~= 'number' then return nil end
+    local player = playerByCid(cid)
+    local pd = player and player.PlayerData
+    local online = pd ~= nil
+    if not pd then
+        local rows = dbQuery('SELECT `citizenid`, `charinfo`, `job`, `money` FROM `players` WHERE `citizenid` = ? LIMIT 1', { cid })
+        local row = rows and rows[1]
+        if not row then return nil end
+        pd = { citizenid = row.citizenid, charinfo = decodeColumn(row.charinfo), job = decodeColumn(row.job), money = decodeColumn(row.money) }
+    end
+    local ci, job, money = pd.charinfo or {}, pd.job or {}, pd.money or {}
+    local grade = type(job.grade) == 'table' and job.grade or {}
+    return {
+        citizenid = tostring(pd.citizenid),
+        source = online and tonumber(pd.source) or nil,
+        online = online,
+        firstname = ci.firstname,
+        lastname = ci.lastname,
+        birthdate = ci.birthdate,
+        gender = (ci.gender == 1 or ci.gender == '1') and 'female' or 'male',
+        nationality = ci.nationality,
+        phone = ci.phone,
+        job = {
+            name = job.name,
+            label = job.label,
+            grade = tonumber(grade.level) or 0,
+            gradeLabel = grade.name or grade.label,
+        },
+        bank = tonumber(money.bank) or 0,
+        cash = tonumber(money.cash) or 0,
+    }
 end
 
 ---The stored `players.money` object, or nil when there is no such character.

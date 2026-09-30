@@ -36,7 +36,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['ox_inventory']:AddItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['ox_inventory']:AddItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 --@param playerId: number [existing player id]
@@ -45,7 +45,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['ox_inventory']:RemoveItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['ox_inventory']:RemoveItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 --@param playerId: number [existing player id]

@@ -36,7 +36,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['codem-inventoryv2']:AddItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['codem-inventoryv2']:AddItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 --@param playerId: number [existing player id]
@@ -45,7 +45,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['codem-inventoryv2']:RemoveItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['codem-inventoryv2']:RemoveItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 --@param playerId: number [existing player id]

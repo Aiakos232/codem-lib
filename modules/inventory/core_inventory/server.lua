@@ -32,7 +32,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['core_inventory']:addItem(playerId, itemName, itemCount, itemMetadata)
+    return exports['core_inventory']:addItem(playerId, itemName, itemCount, itemMetadata)
 end
 
 --@param playerId: number [existing player id]
@@ -41,7 +41,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['core_inventory']:removeItem(playerId, itemName, itemCount)
+    return exports['core_inventory']:removeItem(playerId, itemName, itemCount)
 end
 
 --@param playerId: number [existing player id]

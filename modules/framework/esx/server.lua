@@ -66,6 +66,7 @@ function Framework.Server.GetPlayerJob(src)
         name = xPlayer.job.name,
         label = xPlayer.job.label,
         grade = xPlayer.job.grade,
+        gradeLabel = xPlayer.job.grade_label,
         onduty = true,
         -- ESX has no isboss flag; the 'boss' grade name is the convention.
         isboss = xPlayer.job.grade_name == 'boss',
@@ -377,9 +378,13 @@ local function dbJobEmployees(job)
     local out = {}
     for _, row in ipairs(rows) do
         out[#out + 1] = {
-            cid   = row.identifier,
-            name  = ('%s %s'):format(row.firstname or '', row.lastname or ''):gsub('%s+$', ''),
-            grade = row.gradeLabel or row.job_grade or 0,
+            cid        = row.identifier,
+            name       = ('%s %s'):format(row.firstname or '', row.lastname or ''):gsub('%s+$', ''),
+            grade      = row.gradeLabel or row.job_grade or 0,
+            firstname  = row.firstname,
+            lastname   = row.lastname,
+            level      = tonumber(row.job_grade) or 0,
+            gradeLabel = row.gradeLabel,
         }
     end
 
@@ -398,10 +403,15 @@ function Framework.Server.GetJobEmployees(job)
     for _, xPlayer in pairs(ESX.GetExtendedPlayers() or {}) do
         if xPlayer and xPlayer.identifier then
             if xPlayer.job and xPlayer.job.name == job then
+                local info = Framework.Server.GetCharInfo(xPlayer.source) or {}
                 online[xPlayer.identifier] = {
-                    cid   = xPlayer.identifier,
-                    name  = (xPlayer.getName and xPlayer.getName()) or xPlayer.identifier,
-                    grade = xPlayer.job.grade_label or xPlayer.job.grade or 0,
+                    cid        = xPlayer.identifier,
+                    name       = (xPlayer.getName and xPlayer.getName()) or xPlayer.identifier,
+                    grade      = xPlayer.job.grade_label or xPlayer.job.grade or 0,
+                    firstname  = info.firstname,
+                    lastname   = info.lastname,
+                    level      = tonumber(xPlayer.job.grade) or 0,
+                    gradeLabel = xPlayer.job.grade_label,
                 }
             else
                 online[xPlayer.identifier] = false
@@ -603,6 +613,78 @@ end
 ---@param cid string ESX character identifier
 ---@param account string 'cash' | 'bank'
 ---@return number
+function Framework.Server.GetSourceByCid(cid)
+    if type(cid) ~= 'string' or cid == '' then return nil end
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    return xPlayer and tonumber(xPlayer.source) or nil
+end
+
+function Framework.Server.GetCharacter(cid)
+    if type(cid) ~= 'string' or cid == '' then return nil end
+    local xPlayer = ESX.GetPlayerFromIdentifier(cid)
+    if xPlayer then
+        local info = Framework.Server.GetCharInfo(xPlayer.source) or {}
+        local bank = xPlayer.getAccount('bank')
+        local cash = xPlayer.getAccount('money')
+        return {
+            citizenid = cid,
+            source = tonumber(xPlayer.source),
+            online = true,
+            firstname = info.firstname,
+            lastname = info.lastname,
+            birthdate = info.birthdate,
+            gender = info.gender,
+            nationality = nil,
+            phone = info.phone,
+            job = {
+                name = xPlayer.job and xPlayer.job.name,
+                label = xPlayer.job and xPlayer.job.label,
+                grade = tonumber(xPlayer.job and xPlayer.job.grade) or 0,
+                gradeLabel = xPlayer.job and xPlayer.job.grade_label,
+            },
+            bank = bank and tonumber(bank.money) or 0,
+            cash = cash and tonumber(cash.money) or 0,
+        }
+    end
+
+    local rows = dbQuery('SELECT * FROM `users` WHERE `identifier` = ? LIMIT 1', { cid })
+    local row = rows and rows[1]
+    if not row then return nil end
+
+    local accounts = row.accounts
+    if type(accounts) == 'string' then
+        local ok, decoded = pcall(json.decode, accounts)
+        accounts = ok and decoded or nil
+    end
+    accounts = type(accounts) == 'table' and accounts or {}
+
+    local jobs = Framework.Server.GetJobs() or {}
+    local jobData = row.job and jobs[row.job] or nil
+    local grades = jobData and jobData.grades or {}
+    local gradeData = grades[tostring(row.job_grade)] or grades[tonumber(row.job_grade)]
+    local sex = row.sex
+
+    return {
+        citizenid = cid,
+        source = nil,
+        online = false,
+        firstname = row.firstname,
+        lastname = row.lastname,
+        birthdate = row.dateofbirth,
+        gender = (sex == 'f' or sex == 'F' or sex == 1) and 'female' or 'male',
+        nationality = nil,
+        phone = row.phone_number,
+        job = {
+            name = row.job,
+            label = jobData and jobData.label or row.job,
+            grade = tonumber(row.job_grade) or 0,
+            gradeLabel = gradeData and (gradeData.label or gradeData.name) or nil,
+        },
+        bank = tonumber(accounts.bank) or 0,
+        cash = tonumber(accounts.money) or 0,
+    }
+end
+
 function Framework.Server.GetBalanceByCid(cid, account)
     if type(cid) ~= 'string' or cid == '' then return 0 end
     local name = ACCOUNT_NAMES[account] or account or 'bank'

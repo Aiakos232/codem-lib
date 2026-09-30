@@ -31,11 +31,11 @@ Inventory.CustomDrop = function(prefix, items, coords)
 end
 
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['origen_inventory']:addItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['origen_inventory']:addItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['origen_inventory']:removeItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
+    return exports['origen_inventory']:removeItem(playerId, itemName, itemCount, itemMetadata, itemSlot)
 end
 
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)

@@ -36,7 +36,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['qs-inventory']:AddItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
+    return exports['qs-inventory']:AddItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
 end
 
 --@param playerId: number [existing player id]
@@ -45,7 +45,7 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@param itemSlot: number [item slot, optional]
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
-    exports['qs-inventory']:RemoveItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
+    return exports['qs-inventory']:RemoveItem(playerId, itemName, itemCount, itemSlot, itemMetadata)
 end
 
 --@param playerId: number [existing player id]

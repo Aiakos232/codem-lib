@@ -42,6 +42,7 @@ end
 Inventory.addItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
     local xPlayer = getESX().GetPlayerFromId(playerId)
     xPlayer.addInventoryItem(itemName, itemCount)
+    return true
 end
 
 --@param playerId: number [existing player id]
@@ -52,6 +53,7 @@ end
 Inventory.removeItem = function(playerId, itemName, itemCount, itemMetadata, itemSlot)
     local xPlayer = getESX().GetPlayerFromId(playerId)
     xPlayer.removeInventoryItem(itemName, itemCount, itemMetadata)
+    return true
 end
 
 --@param playerId: number [existing player id]

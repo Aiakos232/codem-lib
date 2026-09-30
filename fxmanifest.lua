@@ -31,7 +31,6 @@ client_scripts {
     'modules/wardrobe/client.lua',
     'modules/weather/client.lua',
     'modules/dispatch/client.lua',
-    'modules/phone/client.lua',
     'modules/inventory/codem-inventoryv2/client.lua',
     'modules/inventory/codem-inventoryv2/oxcompat.lua',
     'modules/inventory/codem-inventoryv2/qbcompat.lua',

@@ -80,10 +80,6 @@ local function summary()
         mdt = 'none (disabled)'
     end
 
-    local phone = detect(LibConfig.Phone and LibConfig.Phone.provider, {
-        'codem-phone', 'lb-phone', 'qs-smartphone-pro', 'qs-smartphone', 'cylex_phone', '17mov_Phone',
-    }, 'framework')
-
     local medical = detect(LibConfig.Medical and LibConfig.Medical.provider, {
         'wasabi_ambulance_v2', 'wasabi_ambulance', 'qs-medical-creator',
         'ars_ambulancejob', 'tk_ambulancejob', 'qbx_medical', 'qb-ambulancejob',
@@ -155,7 +151,6 @@ local function summary()
         { 'notify', notify },
         { 'billing', billing },
         { 'mdt', mdt },
-        { 'phone', phone },
         { 'doorlock', doorlock },
         { 'garage', garage },
         { 'wardrobe', wardrobe },

@@ -33,7 +33,8 @@ LibConfig.Medical = {
 }
 
 -- Billing provider (player invoices).
--- Supported: 'codem-phone' | 'codem-billingv2' | 'auto' | false (disabled)
+-- Supported: 'codem-phone' | 'codem-billingv2' | 'okokBilling' | 'qs-billing'
+-- | 'loaf_billing' | 'esx_billing' | 'qb-phone' | 'auto' | false (disabled)
 --   maxDistance : how close the sender must be to the billed player, in metres.
 --                 0 = no distance check.
 LibConfig.Billing = {

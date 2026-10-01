@@ -9,6 +9,11 @@
       Billing.IsPaid(invoiceId) -> boolean
       Billing.BillsTable()      -> provider's invoice table name | nil
       Billing.Provider()        -> active provider name | nil
+      Billing.List(ids, limit)  -> invoices billed to these identifiers
+      Billing.ListSent(senders) -> invoices a society ('job_police') has sent
+
+    Providers: codem-phone, codem-billingv2, okokBilling, qs-billing,
+    loaf_billing, esx_billing, qb-phone.
 
     `data` fields:
       identifier   citizenid / identifier of the player being billed (required)
@@ -112,6 +117,30 @@ local function decodeReason(raw)
     return #parts > 0 and table.concat(parts, ', ') or text
 end
 
+---Invoice lines of a provider that stores them as JSON: { name, amount, count }.
+local function decodeLines(raw)
+    if type(raw) ~= 'string' then return nil end
+    local first = raw:match('^%s*(.)')
+    if first ~= '[' and first ~= '{' then return nil end
+
+    local ok, decoded = pcall(json.decode, raw)
+    if not ok or type(decoded) ~= 'table' then return nil end
+    if decoded.reason or decoded.name then decoded = { decoded } end
+
+    local lines = {}
+    for _, line in ipairs(decoded) do
+        local label = type(line) == 'table' and (line.reason or line.name or line.label) or nil
+        if label ~= nil and tostring(label) ~= '' then
+            lines[#lines + 1] = {
+                name = tostring(label),
+                amount = math.floor(tonumber(line.amount) or 0),
+                count = math.max(1, math.floor(tonumber(line.mult or line.count) or 1)),
+            }
+        end
+    end
+    return #lines > 0 and lines or nil
+end
+
 local function societyOf(sender)
     if type(sender) == 'string' and sender:sub(1, 4) == 'job_' then return sender end
     return nil
@@ -125,6 +154,10 @@ local function billsQueries(tbl)
     return {
         list = function(ids, limit)
             return query(('SELECT * FROM `%s` WHERE `targetidentifier` IN (%s) ORDER BY `id` DESC LIMIT ?')
+                :format(tbl, marks(#ids)), withTail(ids, limit))
+        end,
+        listSent = function(ids, limit)
+            return query(('SELECT * FROM `%s` WHERE `identifier` IN (%s) ORDER BY `id` DESC LIMIT ?')
                 :format(tbl, marks(#ids)), withTail(ids, limit))
         end,
         get = function(invoiceId)
@@ -184,6 +217,8 @@ local PROVIDERS = {
                 creatorName = str(row.creator_name),
                 amount = math.floor(tonumber(row.amount) or 0),
                 reason = decodeReason(row.charges),
+                lines = decodeLines(row.charges),
+                overdue = tonumber(row.overdue_status) == 1,
                 status = paid and 'paid' or 'unpaid',
                 rawStatus = str(row.status),
                 paid = paid,
@@ -245,6 +280,7 @@ local PROVIDERS = {
                 creatorName = nil,
                 amount = math.floor(tonumber(row.amount) or 0),
                 reason = decodeReason(row.reason),
+                lines = decodeLines(row.reason),
                 status = paid and 'paid' or 'unpaid',
                 rawStatus = str(row.status),
                 paid = paid,
@@ -259,6 +295,393 @@ local PROVIDERS = {
         end,
     },
 }
+
+--------------------------------------------------------------------------------
+-- Third-party billing resources
+--
+-- These keep their invoices in their own tables with their own column names, so
+-- each one brings its own queries. Where a resource deletes an invoice on
+-- payment (esx_billing, qb-phone) there is no paid history to list and a
+-- missing row reads as paid.
+--------------------------------------------------------------------------------
+
+local function scalar(sql, params)
+    local ok, value = pcall(function() return MySQL.scalar.await(sql, params) end)
+    return ok and value or nil
+end
+
+local function insert(sql, params)
+    local ok, id = pcall(function() return MySQL.insert.await(sql, params) end)
+    return ok and tonumber(id) or nil
+end
+
+---'society_police' / 'police' / 'job_police' -> 'job_police', the form the rest of the lib uses.
+local function jobAccount(value)
+    if type(value) ~= 'string' or value == '' then return nil end
+    return 'job_' .. value:gsub('^society_', ''):gsub('^job_', '')
+end
+
+local function identifierOf(src)
+    local framework = CodemLib and CodemLib.Framework
+    return framework and framework.GetIdentifier and framework.GetIdentifier(src) or nil
+end
+
+---The id of the row a create call just added for this receiver. The create
+---events of these resources return nothing, so the new row is looked up.
+local function newestAfter(tbl, column, receiver, before)
+    for _ = 1, 20 do
+        Wait(100)
+        local id = scalar(('SELECT MAX(`id`) FROM `%s` WHERE `%s` = ? AND `id` > ?'):format(tbl, column), { receiver, before })
+        if id then return id end
+    end
+    return nil
+end
+
+local function newestId(tbl, column, receiver)
+    return tonumber(scalar(('SELECT COALESCE(MAX(`id`), 0) FROM `%s` WHERE `%s` = ?'):format(tbl, column), { receiver })) or 0
+end
+
+---okokBilling and qs-billing share one table layout. `find` resolves the real
+---table name once (okokBilling's is configurable and its case differs by version).
+local function okokLayout(find, opts)
+    local name, hasRef
+    local function tbl()
+        if name == nil then
+            name = find() or false
+            hasRef = name and scalar(
+                'SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1',
+                { name, 'ref_id' }) ~= nil
+        end
+        return name or nil
+    end
+
+    local function rows(where, params)
+        local t = tbl()
+        if not t then return nil end
+        return query(("SELECT * FROM `%s` WHERE %s AND `status` <> 'cancelled' ORDER BY `id` DESC LIMIT ?"):format(t, where), params)
+    end
+
+    return {
+        table = tbl,
+        bills = {
+            list = function(ids, limit)
+                return rows(('`receiver_identifier` IN (%s)'):format(marks(#ids)), withTail(ids, limit))
+            end,
+            listSent = function(ids, limit)
+                return rows(('`society` IN (%s)'):format(marks(#ids)), withTail(ids, limit))
+            end,
+            get = function(invoiceId)
+                local t = tbl()
+                local found = t and query(('SELECT * FROM `%s` WHERE `id` = ? LIMIT 1'):format(t), { invoiceId })
+                return found and found[1] or nil
+            end,
+            markPaid = function(invoiceId)
+                local t = tbl()
+                return t and update(("UPDATE `%s` SET `status` = 'paid', `paid_date` = CURRENT_TIMESTAMP() WHERE `id` = ? AND `status` = 'unpaid'"):format(t), { invoiceId })
+            end,
+            cancel = function(invoiceId)
+                local t = tbl()
+                return t and update(('DELETE FROM `%s` WHERE `id` = ?'):format(t), { invoiceId })
+            end,
+            cancelUnpaid = function(ids)
+                local t = tbl()
+                return t and update(("DELETE FROM `%s` WHERE `receiver_identifier` IN (%s) AND `status` = 'unpaid'"):format(t, marks(#ids)), ids)
+            end,
+        },
+        isPaid = function(invoiceId)
+            local t = tbl()
+            local status = t and scalar(('SELECT `status` FROM `%s` WHERE `id` = ? LIMIT 1'):format(t), { invoiceId })
+            return status == 'paid' or status == 'autopaid'
+        end,
+        normalise = function(row)
+            local paid = row.status == 'paid' or row.status == 'autopaid'
+            local value = math.floor(tonumber(row.invoice_value) or 0)
+            -- Only the layout with a reference number keeps the late fee as money beside the invoice value.
+            local fee = (opts.feeIsMoney and hasRef) and math.floor(tonumber(row.fees_amount) or 0) or 0
+            local date, dateText = decodeDate(paid and row.paid_date or row.sent_date)
+            local due = (decodeDate(row.limit_pay_date))
+            local note = str(row.notes)
+            return {
+                id = row.id,
+                invoiceId = str(row.id),
+                number = str(row.ref_id),
+                receiver = str(row.receiver_identifier),
+                receiverName = str(row.receiver_name),
+                sender = str(row.society ~= '' and row.society or row.author_identifier),
+                senderName = str(row.society_name ~= '' and row.society_name or row.author_name),
+                creator = str(row.author_identifier),
+                creatorName = str(row.author_name),
+                amount = value + fee,
+                reason = str(row.item),
+                note = note and note:match('%S') and note or nil,
+                lines = fee > 0 and { { name = tostring(row.item or ''), amount = value, count = 1 } } or nil,
+                status = paid and 'paid' or 'unpaid',
+                rawStatus = str(row.status),
+                paid = paid,
+                tax = false,
+                system = false,
+                society = jobAccount(row.society),
+                kind = nil,
+                date = date,
+                dateText = dateText,
+                overdueDate = due,
+                overdue = not paid and due ~= nil and due < os.time(),
+            }
+        end,
+    }
+end
+
+local function tableNamed(lower)
+    return function()
+        return scalar('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = ? LIMIT 1', { lower })
+    end
+end
+
+do
+    local okok = okokLayout(tableNamed('okokbilling'), { feeIsMoney = true })
+    okok.send = function(target, data)
+        local receiver, t = identifierOf(target), okok.table()
+        if not receiver or not t then return nil end
+        local before = newestId(t, 'receiver_identifier', receiver)
+        -- okokBilling stores the society with the framework's usual prefix.
+        local society = (CodemLib and CodemLib.FrameworkName == 'esx') and ('society_' .. data.job) or data.job
+        TriggerEvent('okokBilling:CreateCustomInvoice', target, data.amount, data.reason, data.jobLabel, society, data.jobLabel, data.senderIdentifier)
+        return newestAfter(t, 'receiver_identifier', receiver, before)
+    end
+    PROVIDERS['okokBilling'] = okok
+
+    local qs = okokLayout(tableNamed('qs_billing'), { feeIsMoney = false })
+    qs.send = function(target, data)
+        local receiver, t = identifierOf(target), qs.table()
+        if not receiver or not t then return nil end
+        local before = newestId(t, 'receiver_identifier', receiver)
+        exports['qs-billing']:ServerCreateInvoice(target, data.reason, data.reason, data.amount, true, false, false, false, data.jobLabel)
+        return newestAfter(t, 'receiver_identifier', receiver, before)
+    end
+    PROVIDERS['qs-billing'] = qs
+end
+
+PROVIDERS['loaf_billing'] = {
+    paidEvent = 'loaf_billing:bill_paid',
+    paidArgs = function(res)
+        local row = type(res) == 'table' and (res[1] or res) or nil
+        return row and row.id
+    end,
+
+    send = function(target, data)
+        -- loaf_billing only bills on behalf of a player who holds the job.
+        if not data.senderSource then return nil end
+        local done = promise.new()
+        exports.loaf_billing:CreateBill(data.senderSource, function(id) done:resolve(id or false) end,
+            target, 30, 0, data.amount, data.reason, data.reason, data.job)
+        return Citizen.Await(done) or nil
+    end,
+
+    isPaid = function(invoiceId)
+        local signed = scalar('SELECT `signed` FROM `loaf_invoices` WHERE `id` = ? LIMIT 1', { tostring(invoiceId) })
+        return signed == true or tonumber(signed) == 1
+    end,
+
+    bills = {
+        list = function(ids, limit)
+            return query(('SELECT * FROM `loaf_invoices` WHERE `owner` IN (%s) ORDER BY `issued` DESC LIMIT ?'):format(marks(#ids)), withTail(ids, limit))
+        end,
+        listSent = function(ids, limit)
+            return query(('SELECT * FROM `loaf_invoices` WHERE `company` IN (%s) ORDER BY `issued` DESC LIMIT ?'):format(marks(#ids)), withTail(ids, limit))
+        end,
+        get = function(invoiceId)
+            local rows = query('SELECT * FROM `loaf_invoices` WHERE `id` = ? LIMIT 1', { invoiceId })
+            return rows and rows[1] or nil
+        end,
+        markPaid = function(invoiceId)
+            return update('UPDATE `loaf_invoices` SET `signed` = 1, `late` = GREATEST(0, DATEDIFF(CURRENT_DATE, `due`)) WHERE `id` = ? AND `signed` = 0', { invoiceId })
+        end,
+        cancel = function(invoiceId)
+            return update('DELETE FROM `loaf_invoices` WHERE `id` = ?', { invoiceId })
+        end,
+        cancelUnpaid = function(ids)
+            return update(('DELETE FROM `loaf_invoices` WHERE `owner` IN (%s) AND `signed` = 0'):format(marks(#ids)), ids)
+        end,
+    },
+
+    normalise = function(row)
+        local paid = row.signed == true or tonumber(row.signed) == 1
+        local value = math.floor(tonumber(row.amount) or 0)
+        local date, dateText = decodeDate(row.issued)
+        local due = (decodeDate(row.due))
+        -- Interest is a percentage of the amount for every day past the due date.
+        local lateDays = paid and (tonumber(row.late) or 0) or (due and math.max(0, math.floor((os.time() - due) / 86400)) or 0)
+        local fee = math.floor(value * (tonumber(row.interest) or 0) / 100 * lateDays)
+        local label = str(row.description) or str(row.name)
+        return {
+            id = row.id,
+            invoiceId = str(row.id),
+            receiver = str(row.owner),
+            receiverName = str(row.billed_name),
+            sender = str(row.company),
+            senderName = str(row.company_name) or str(row.company),
+            creator = str(row.biller),
+            creatorName = str(row.biller_name),
+            amount = value + fee,
+            reason = label,
+            lines = fee > 0 and { { name = label or '', amount = value, count = 1 } } or nil,
+            status = paid and 'paid' or 'unpaid',
+            rawStatus = paid and 'signed' or 'unsigned',
+            paid = paid,
+            tax = false,
+            system = false,
+            society = jobAccount(row.company),
+            kind = nil,
+            date = date,
+            dateText = dateText,
+            overdueDate = due,
+            overdue = not paid and lateDays > 0,
+        }
+    end,
+}
+
+PROVIDERS['esx_billing'] = {
+    paidEvent = 'esx_billing:paidBill',
+    paidArgs = function(_, billId) return billId end,
+
+    send = function(target, data)
+        local receiver = identifierOf(target)
+        if not receiver then return nil end
+        local account, sender = 'society_' .. data.job, data.senderIdentifier or 'server'
+        local ok, id = pcall(function()
+            return exports.esx_billing:BillPlayerByIdentifier(receiver, sender, account, data.reason, data.amount)
+        end)
+        if ok and id then return id end
+        -- Releases without that export: the same row the resource writes itself.
+        return insert('INSERT INTO `billing` (`identifier`, `sender`, `target_type`, `target`, `label`, `amount`) VALUES (?, ?, ?, ?, ?, ?)',
+            { receiver, sender, 'society', account, data.reason, data.amount })
+    end,
+
+    isPaid = function(invoiceId)
+        return scalar('SELECT 1 FROM `billing` WHERE `id` = ? LIMIT 1', { invoiceId }) == nil
+    end,
+
+    bills = {
+        list = function(ids, limit)
+            return query(('SELECT * FROM `billing` WHERE `identifier` IN (%s) ORDER BY `id` DESC LIMIT ?'):format(marks(#ids)), withTail(ids, limit))
+        end,
+        listSent = function(ids, limit)
+            return query(("SELECT * FROM `billing` WHERE `target_type` = 'society' AND `target` IN (%s) ORDER BY `id` DESC LIMIT ?"):format(marks(#ids)), withTail(ids, limit))
+        end,
+        get = function(invoiceId)
+            local rows = query('SELECT * FROM `billing` WHERE `id` = ? LIMIT 1', { invoiceId })
+            return rows and rows[1] or nil
+        end,
+        markPaid = function(invoiceId)
+            return update('DELETE FROM `billing` WHERE `id` = ?', { invoiceId })
+        end,
+        cancel = function(invoiceId)
+            return update('DELETE FROM `billing` WHERE `id` = ?', { invoiceId })
+        end,
+        cancelUnpaid = function(ids)
+            return update(('DELETE FROM `billing` WHERE `identifier` IN (%s)'):format(marks(#ids)), ids)
+        end,
+    },
+
+    normalise = function(row)
+        local society = row.target_type == 'society' and jobAccount(row.target) or nil
+        return {
+            id = row.id,
+            invoiceId = str(row.id),
+            receiver = str(row.identifier),
+            receiverName = nil,
+            sender = str(row.target),
+            senderName = society and society:sub(5) or nil,
+            creator = str(row.sender),
+            creatorName = nil,
+            amount = math.floor(tonumber(row.amount) or 0),
+            reason = str(row.label),
+            status = 'unpaid',
+            rawStatus = 'unpaid',
+            paid = false,
+            tax = false,
+            system = row.sender == 'server',
+            society = society,
+            kind = nil,
+            date = nil,
+            dateText = nil,
+            overdueDate = nil,
+        }
+    end,
+}
+
+PROVIDERS['qb-phone'] = {
+    paidEvent = 'qb-phone:server:paidInvoice',
+    paidArgs = function(_, invoiceId) return invoiceId end,
+
+    send = function(target, data)
+        local receiver = identifierOf(target)
+        if not receiver then return nil end
+        local framework = CodemLib and CodemLib.Framework
+        local name = data.senderSource and framework and framework.GetName and framework.GetName(data.senderSource) or data.jobLabel
+        -- Older tables have no `reason` column.
+        local id = insert('INSERT INTO `phone_invoices` (`citizenid`, `amount`, `society`, `sender`, `sendercitizenid`, `reason`) VALUES (?, ?, ?, ?, ?, ?)',
+            { receiver, data.amount, data.job, name, data.senderIdentifier, data.reason })
+            or insert('INSERT INTO `phone_invoices` (`citizenid`, `amount`, `society`, `sender`, `sendercitizenid`) VALUES (?, ?, ?, ?, ?)',
+                { receiver, data.amount, data.job, name, data.senderIdentifier })
+        if id then TriggerClientEvent('qb-phone:RefreshPhone', target) end
+        return id
+    end,
+
+    isPaid = function(invoiceId)
+        return scalar('SELECT 1 FROM `phone_invoices` WHERE `id` = ? LIMIT 1', { invoiceId }) == nil
+    end,
+
+    bills = {
+        list = function(ids, limit)
+            return query(('SELECT * FROM `phone_invoices` WHERE `citizenid` IN (%s) ORDER BY `id` DESC LIMIT ?'):format(marks(#ids)), withTail(ids, limit))
+        end,
+        listSent = function(ids, limit)
+            return query(('SELECT * FROM `phone_invoices` WHERE `society` IN (%s) ORDER BY `id` DESC LIMIT ?'):format(marks(#ids)), withTail(ids, limit))
+        end,
+        get = function(invoiceId)
+            local rows = query('SELECT * FROM `phone_invoices` WHERE `id` = ? LIMIT 1', { invoiceId })
+            return rows and rows[1] or nil
+        end,
+        markPaid = function(invoiceId)
+            return update('DELETE FROM `phone_invoices` WHERE `id` = ?', { invoiceId })
+        end,
+        cancel = function(invoiceId)
+            return update('DELETE FROM `phone_invoices` WHERE `id` = ?', { invoiceId })
+        end,
+        cancelUnpaid = function(ids)
+            return update(('DELETE FROM `phone_invoices` WHERE `citizenid` IN (%s)'):format(marks(#ids)), ids)
+        end,
+    },
+
+    normalise = function(row)
+        return {
+            id = row.id,
+            invoiceId = str(row.id),
+            receiver = str(row.citizenid),
+            receiverName = nil,
+            sender = str(row.society),
+            senderName = str(row.society),
+            creator = str(row.sendercitizenid),
+            creatorName = str(row.sender),
+            amount = math.floor(tonumber(row.amount) or 0),
+            reason = str(row.reason),
+            status = 'unpaid',
+            rawStatus = 'unpaid',
+            paid = false,
+            tax = false,
+            system = false,
+            society = jobAccount(row.society),
+            kind = nil,
+            date = nil,
+            dateText = nil,
+            overdueDate = nil,
+        }
+    end,
+}
+
+-- 'auto' takes the first of these that is running.
+local DETECT_ORDER = { 'codem-phone', 'codem-billingv2', 'okokBilling', 'qs-billing', 'loaf_billing', 'esx_billing', 'qb-phone' }
 
 local function enabled()
     return cfg.enabled ~= false and cfg.provider ~= false
@@ -281,7 +704,7 @@ function Billing.Provider()
         return resolved or nil
     end
 
-    for name in pairs(PROVIDERS) do
+    for _, name in ipairs(DETECT_ORDER) do
         if GetResourceState(name) == 'started' then
             resolved = name
             return name
@@ -392,6 +815,7 @@ function Billing.Send(data)
     jobLabel = jobLabel or job:upper()
 
     local sent, invoiceId = pcall(PROVIDERS[provider].send, target, {
+        senderSource = data.senderSource,
         amount = amount,
         reason = tostring(data.reason or 'Invoice'),
         job = job,
@@ -434,6 +858,25 @@ function Billing.List(identifiers, limit)
     if #ids == 0 then return {} end
 
     local rows = p.bills.list(ids, math.floor(tonumber(limit) or 200))
+    if not rows then return nil end
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        out[#out + 1] = p.normalise(row)
+    end
+    return out
+end
+
+---Invoices a sender (a society such as 'job_police', or a player) has issued, newest first.
+---Returns nil when the active provider cannot list by sender.
+function Billing.ListSent(senders, limit)
+    local p = active()
+    if not p or not MySQL or not p.bills.listSent then return nil end
+
+    local ids = identifierList(senders)
+    if #ids == 0 then return {} end
+
+    local rows = p.bills.listSent(ids, math.floor(tonumber(limit) or 200))
     if not rows then return nil end
 
     local out = {}
@@ -501,7 +944,12 @@ function Billing.ForcePay(invoiceId, opts)
         pcall(Society.Pay, row.society:gsub('^job_', ''), row.amount)
     end
 
-    TriggerEvent(p.paidEvent, row.invoiceId)
+    -- A foreign paid event carries that resource's own arguments, so the lib's event is raised directly.
+    if p.paidEvent and not p.paidArgs then
+        TriggerEvent(p.paidEvent, row.invoiceId)
+    else
+        TriggerEvent('codem-lib:billing:invoicePaid', tostring(row.invoiceId), name)
+    end
 
     if cfg.debug or (LibConfig and LibConfig.Debug) then
         warn('invoice %s force-paid (%s)', row.invoiceId, charged and ('charged ' .. account) or 'not charged')
@@ -527,7 +975,7 @@ function Billing.CancelUnpaid(identifiers)
 end
 
 ---Where the active provider keeps its invoices - one row per invoice, keyed by
----an `invoiceid` column. A cancelled invoice is deleted from it, so a consumer
+---an `invoiceid` column. nil for a third-party provider, whose table is laid out differently. A cancelled invoice is deleted from it, so a consumer
 ---that stored an invoice id can check whether it is still there.
 ---@return string|nil table name, nil when billing is off / provider unknown
 function Billing.BillsTable()
@@ -537,7 +985,8 @@ end
 
 for name, provider in pairs(PROVIDERS) do
     if provider.paidEvent then
-        AddEventHandler(provider.paidEvent, function(invoiceId)
+        AddEventHandler(provider.paidEvent, function(...)
+            local invoiceId = provider.paidArgs and provider.paidArgs(...) or (not provider.paidArgs and (...)) or nil
             if not invoiceId then return end
             TriggerEvent('codem-lib:billing:invoicePaid', tostring(invoiceId), name)
         end)
@@ -548,6 +997,7 @@ exports('SendInvoice', Billing.Send)
 exports('IsInvoicePaid', Billing.IsPaid)
 exports('GetInvoices', Billing.List)
 exports('GetInvoice', Billing.Get)
+exports('GetSentInvoices', Billing.ListSent)
 exports('ForcePayInvoice', Billing.ForcePay)
 exports('CancelInvoice', Billing.Cancel)
 exports('CancelUnpaidInvoices', Billing.CancelUnpaid)

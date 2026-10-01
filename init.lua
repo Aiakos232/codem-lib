@@ -78,6 +78,8 @@ if IsDuplicityVersion() then
         Provider = function() return exports[LIB]:GetBillingProvider() end,
         List = function(identifiers, limit) return exports[LIB]:GetInvoices(identifiers, limit) end,
         Get = function(invoiceId) return exports[LIB]:GetInvoice(invoiceId) end,
+        ---Invoices a society ('job_police') or player has sent. nil when the provider cannot list by sender.
+        ListSent = function(senders, limit) return exports[LIB]:GetSentInvoices(senders, limit) end,
         ForcePay = function(invoiceId, opts) return exports[LIB]:ForcePayInvoice(invoiceId, opts) end,
         Cancel = function(invoiceId) return exports[LIB]:CancelInvoice(invoiceId) end,
         CancelUnpaid = function(identifiers) return exports[LIB]:CancelUnpaidInvoices(identifiers) end,

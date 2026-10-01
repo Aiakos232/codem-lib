@@ -42,7 +42,7 @@ local QB_STATE = { [0] = 'outside', [1] = 'garage', [2] = 'impound' }
 local STATE_TO_QB = { outside = 0, garage = 1, impound = 2 }
 
 local SELECT_QB = [[
-    SELECT v.id, v.plate, v.vehicle AS model, v.garage, v.state,
+    SELECT v.plate, v.vehicle AS model, v.garage, v.state,
            v.fuel, v.engine, v.body, v.mods, v.citizenid,
            JSON_UNQUOTE(JSON_EXTRACT(p.charinfo, '$.firstname')) AS `first`,
            JSON_UNQUOTE(JSON_EXTRACT(p.charinfo, '$.lastname'))  AS `last`
@@ -59,8 +59,8 @@ local SELECT_ESX = [[
 
 local QUERIES = {
     qb = {
-        list        = SELECT_QB .. ' ORDER BY v.id DESC LIMIT ?',
-        byOwner     = SELECT_QB .. ' WHERE v.citizenid = ? ORDER BY v.id DESC LIMIT ?',
+        list        = SELECT_QB .. ' ORDER BY {order} LIMIT ?',
+        byOwner     = SELECT_QB .. ' WHERE v.citizenid = ? ORDER BY {order} LIMIT ?',
         one         = SELECT_QB .. ' WHERE v.plate = ? LIMIT 1',
         counts      = 'SELECT `state`, COUNT(*) AS `count` FROM `player_vehicles` GROUP BY `state`',
         setState    = 'UPDATE `player_vehicles` SET `state` = ? WHERE `plate` = ?',
@@ -68,7 +68,7 @@ local QUERIES = {
         setOwner    = 'UPDATE `player_vehicles` SET `citizenid` = ?, `license` = ? WHERE `plate` = ?',
         remove      = 'DELETE FROM `player_vehicles` WHERE `plate` = ?',
         removeOwned = 'DELETE FROM `player_vehicles` WHERE `citizenid` = ?',
-        stored      = SELECT_QB .. ' WHERE v.citizenid = ? AND v.state = 1 ORDER BY v.id DESC',
+        stored      = SELECT_QB .. ' WHERE v.citizenid = ? AND v.state = 1 ORDER BY {order}',
         storedOne   = SELECT_QB .. ' WHERE v.citizenid = ? AND v.plate = ? AND v.state = 1 LIMIT 1',
         repair      = 'UPDATE `player_vehicles` SET `engine` = 1000, `body` = 1000 WHERE `plate` = ?',
         refuel      = 'UPDATE `player_vehicles` SET `fuel` = 100 WHERE `plate` = ?',
@@ -105,8 +105,24 @@ local QUERIES = {
 -- Plumbing
 --------------------------------------------------------------------------------
 
+local qbOrder
+
+local function resolveOrder(sql)
+    if not sql:find('{order}', 1, true) then return sql end
+    if not qbOrder then
+        local ok, rows = pcall(MySQL.Sync.fetchAll, [[
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'player_vehicles' AND COLUMN_NAME = 'id'
+            LIMIT 1
+        ]], {})
+        qbOrder = (ok and type(rows) == 'table' and rows[1]) and 'v.id DESC' or 'v.plate'
+    end
+    return (sql:gsub('{order}', qbOrder))
+end
+
 local function query(sql, params)
     if not sql then return nil end
+    sql = resolveOrder(sql)
 
     local ok, result = pcall(MySQL.Sync.fetchAll, sql, params or {})
     if not ok then

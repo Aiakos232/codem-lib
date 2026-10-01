@@ -56,6 +56,11 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
     return exports['ox_inventory']:Search(playerId, 'count', itemName, itemMetadata)
 end
 
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    exports['ox_inventory']:SetMetadata(playerId, slot, metadata)
+    return true
+end
+
 Inventory.getItemSlot = function(playerId, slot)
     return exports['ox_inventory']:GetSlot(playerId, slot)
 end

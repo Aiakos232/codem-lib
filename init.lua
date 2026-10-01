@@ -249,6 +249,9 @@ if IsDuplicityVersion() then
         CanCarry = function(src, itemName, count, metadata) return exports[LIB]:CanCarry(src, itemName, count or 1,
                 metadata) end,
         Slot = function(src, slot) return exports[LIB]:GetItemSlot(src, slot) end,
+        ---Replace the metadata of the item in a player's slot.
+        ---@param src number, slot number, metadata table @return boolean false when the inventory cannot set it
+        SetMetadata = function(src, slot, metadata) return exports[LIB]:SetItemMetadata(src, slot, metadata) == true end,
         ---Item metadata for every item on the server.
         ---@return table<string, { label: string, weight: number, image: string|nil }>|nil
         Catalog = function() return exports[LIB]:GetItemCatalog() end,

@@ -54,6 +54,19 @@ exports('GetCapacity', function(src) return call('capacity', src) end)
 exports('GetStashItems', function(stashId) return call('stashItems', stashId) end)
 
 exports('GetItemSlot', function(src, slot) return call('getItemSlot', src, slot) end)
+
+--[[
+    Replace the metadata of the item in one of a player's slots. Providers
+    without a setter answer false quietly: callers use it for cosmetic data
+    (a label on the item) and must work without it.
+]]
+exports('SetItemMetadata', function(src, slot, metadata)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider or not provider.setItemMetadata then return false end
+    local ok, out = pcall(provider.setItemMetadata, src, slot, metadata)
+    return ok and out ~= false
+end)
 exports('CustomDrop', function(prefix, items, coords) return call('CustomDrop', prefix, items, coords) end)
 exports('CreateShop', function(shopName, data) return call('createShop', shopName, data) end)
 exports('RegisterStash', function(stashId, label, slots, weight, groups, coords, opts)

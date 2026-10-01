@@ -56,6 +56,11 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
     return exports['codem-inventoryv2']:Search(playerId, 'count', itemName, itemMetadata)
 end
 
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    exports['codem-inventoryv2']:SetMetadata(playerId, slot, metadata)
+    return true
+end
+
 Inventory.getItemSlot = function(playerId, slot)
     return exports['codem-inventoryv2']:GetSlot(playerId, slot)
 end

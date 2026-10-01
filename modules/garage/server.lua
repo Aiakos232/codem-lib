@@ -166,6 +166,69 @@ local function reset()
     sent = {}
 end
 
+local QS = 'qs-advancedgarages'
+local QS_MAX_DISTANCE = 40.0
+local QS_TYPE = { car = 'vehicle', automobile = 'vehicle', boat = 'boat', plane = 'plane', air = 'plane' }
+
+local function identifierOf(src)
+    local fw = type(Framework) == 'table' and Framework.Server or nil
+    if not fw or not fw.GetIdentifier then return nil end
+    local ok, id = pcall(fw.GetIdentifier, src)
+    return ok and id or nil
+end
+
+RegisterNetEvent('codem-lib:garage:qsList', function(token)
+    local src = source
+    local owner = identifierOf(src)
+    local list = {}
+    for _, v in ipairs(owner and exports['codem-lib']:GetStoredVehicles(owner) or {}) do
+        list[#list + 1] = { plate = v.plate, model = v.model }
+    end
+    TriggerClientEvent('codem-lib:garage:qsListResult', src, token, list)
+end)
+
+RegisterNetEvent('codem-lib:garage:qsTakeOut', function(token, plate, spawn, vehicleType)
+    local src = source
+    local function reply(ok, data)
+        TriggerClientEvent('codem-lib:garage:qsTakeOutResult', src, token, ok, data)
+    end
+
+    local owner = identifierOf(src)
+    if not owner or type(plate) ~= 'string' or type(spawn) ~= 'table' then
+        return reply(false, 'failed')
+    end
+
+    local sx, sy, sz = tonumber(spawn.x), tonumber(spawn.y), tonumber(spawn.z)
+    local sh = tonumber(spawn.w) or 0.0
+    if not sx or not sy or not sz then return reply(false, 'failed') end
+    local coords = vector4(sx + 0.0, sy + 0.0, sz + 0.0, sh + 0.0)
+
+    local ped = GetPlayerPed(src)
+    if ped == 0 or #(GetEntityCoords(ped) - coords.xyz) > QS_MAX_DISTANCE then
+        return reply(false, 'failed')
+    end
+
+    local v = exports['codem-lib']:GetStoredVehicle(owner, plate)
+    if not v then return reply(false, 'not_owned') end
+
+    exports['codem-lib']:SetVehicleState(v.plate, 'outside')
+
+    local ok, err = false, 'not started'
+    if running(QS) then
+        ok, err = pcall(function()
+            exports[QS]:SpawnVehicle(v.id or v.plate, owner, QS_TYPE[vehicleType or 'car'] or 'vehicle',
+                coords, v.props, src, true)
+        end)
+    end
+    if not ok then
+        exports['codem-lib']:SetVehicleState(v.plate, 'garage')
+        print(('[codem-lib] qs-advancedgarages SpawnVehicle failed for %s: %s'):format(v.plate, tostring(err)))
+        return reply(false, 'failed')
+    end
+
+    reply(true, { plate = v.plate })
+end)
+
 exports('RegisterGarages', registerGarages)
 exports('ResetGarageRegistry', reset)
 

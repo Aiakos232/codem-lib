@@ -201,6 +201,11 @@ if IsDuplicityVersion() then
         ByOwner = function(owner, limit) return exports[LIB]:GetOwnerVehicles(owner, limit) end,
         ---@param plate string @return table|nil
         Get = function(plate) return exports[LIB]:GetVehicle(plate) end,
+        ---Stored cars with `id` (qb) and the decoded `props`, ready to spawn.
+        ---@param owner string @return table[]|nil
+        Stored = function(owner) return exports[LIB]:GetStoredVehicles(owner) end,
+        ---@param owner string, plate string @return table|nil nil unless owned and stored
+        StoredOne = function(owner, plate) return exports[LIB]:GetStoredVehicle(owner, plate) end,
         ---@return { total: number, garage: number, impound: number, outside: number }|nil
         Counts = function() return exports[LIB]:GetVehicleCounts() end,
         ---@param plate string, state 'garage'|'impound'|'outside' @return boolean

@@ -68,6 +68,8 @@ local QUERIES = {
         setOwner    = 'UPDATE `player_vehicles` SET `citizenid` = ?, `license` = ? WHERE `plate` = ?',
         remove      = 'DELETE FROM `player_vehicles` WHERE `plate` = ?',
         removeOwned = 'DELETE FROM `player_vehicles` WHERE `citizenid` = ?',
+        stored      = SELECT_QB .. ' WHERE v.citizenid = ? AND v.state = 1 ORDER BY v.id DESC',
+        storedOne   = SELECT_QB .. ' WHERE v.citizenid = ? AND v.plate = ? AND v.state = 1 LIMIT 1',
         repair      = 'UPDATE `player_vehicles` SET `engine` = 1000, `body` = 1000 WHERE `plate` = ?',
         refuel      = 'UPDATE `player_vehicles` SET `fuel` = 100 WHERE `plate` = ?',
         create      = [[
@@ -86,6 +88,8 @@ local QUERIES = {
         setOwner    = 'UPDATE `owned_vehicles` SET `owner` = ? WHERE `plate` = ?',
         remove      = 'DELETE FROM `owned_vehicles` WHERE `plate` = ?',
         removeOwned = 'DELETE FROM `owned_vehicles` WHERE `owner` = ?',
+        stored      = SELECT_ESX .. ' WHERE o.owner = ? AND o.stored = 1 ORDER BY o.plate',
+        storedOne   = SELECT_ESX .. ' WHERE o.owner = ? AND o.plate = ? AND o.stored = 1 LIMIT 1',
         -- ESX keeps condition inside the props blob rather than in columns, so
         -- there is nothing to reset here; the caller is told so by a nil.
         repair      = nil,
@@ -247,6 +251,50 @@ function Vehicles.get(plate)
     local rows = query(QUERIES[fw].one, { trim(plate) })
     local row = rows and rows[1]
     return row and normalise(row, fw) or nil
+end
+
+---The normalised row plus what a garage needs to put the car back on the
+---road: the row id (qb only; ESX has none) and the props blob, decoded.
+local function spawnable(row, fw)
+    local item = normalise(row, fw)
+    if not item then return nil end
+
+    local raw = fw == 'esx' and row.props or row.mods
+    local ok, props = pcall(json.decode, type(raw) == 'string' and raw ~= '' and raw or '{}')
+    item.id = row.id
+    item.props = (ok and type(props) == 'table') and props or {}
+    return item
+end
+
+---Cars the owner has stored, ready to spawn.
+---@param owner string citizenid (qb) / identifier (esx)
+---@return table[]|nil
+function Vehicles.stored(owner)
+    local fw = framework()
+    if not fw or type(owner) ~= 'string' or owner == '' then return nil end
+
+    local rows = query(QUERIES[fw].stored, { owner })
+    if not rows then return nil end
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        local item = spawnable(row, fw)
+        if item then out[#out + 1] = item end
+    end
+    return out
+end
+
+---One stored car, only when it belongs to the owner and is still stored.
+---@param owner string
+---@param plate string
+---@return table|nil
+function Vehicles.storedOne(owner, plate)
+    local fw = framework()
+    if not fw or type(owner) ~= 'string' or type(plate) ~= 'string' then return nil end
+
+    local rows = query(QUERIES[fw].storedOne, { owner, trim(plate) })
+    local row = rows and rows[1]
+    return row and spawnable(row, fw) or nil
 end
 
 ---Counts come from their own query rather than from a listing: a list is
@@ -417,6 +465,8 @@ end
 exports('GetVehicles', function(limit) return Vehicles.list(limit) end)
 exports('GetOwnerVehicles', function(owner, limit) return Vehicles.byOwner(owner, limit) end)
 exports('GetVehicle', function(plate) return Vehicles.get(plate) end)
+exports('GetStoredVehicles', function(owner) return Vehicles.stored(owner) end)
+exports('GetStoredVehicle', function(owner, plate) return Vehicles.storedOne(owner, plate) end)
 exports('GetVehicleCounts', function() return Vehicles.counts() end)
 exports('SetVehicleState', function(plate, state) return Vehicles.setState(plate, state) end)
 exports('SetVehiclePlate', function(plate, next_) return Vehicles.setPlate(plate, next_) end)

@@ -239,9 +239,97 @@ local function openCodem()
     return true
 end
 
+local qsPending, qsSeq = {}, 0
+
+local function qsRequest(event, ...)
+    qsSeq = qsSeq + 1
+    local token = ('%s:%d'):format(GetCurrentResourceName(), qsSeq)
+    local p = promise.new()
+    qsPending[token] = p
+    TriggerServerEvent(event, token, ...)
+    SetTimeout(10000, function()
+        if qsPending[token] then
+            qsPending[token] = nil
+            p:resolve({ false, 'failed' })
+        end
+    end)
+    return table.unpack(Citizen.Await(p))
+end
+
+local function qsResolve(token, ...)
+    local p = qsPending[token]
+    if not p then return end
+    qsPending[token] = nil
+    p:resolve({ ... })
+end
+
+RegisterNetEvent('codem-lib:garage:qsListResult', function(token, list) qsResolve(token, true, list) end)
+RegisterNetEvent('codem-lib:garage:qsTakeOutResult', qsResolve)
+
+local function trimPlate(plate)
+    if type(plate) ~= 'string' then return '' end
+    return (plate:gsub('^%s*(.-)%s*$', '%1'))
+end
+
+local function modelLabel(model)
+    local hash = tonumber(model) or (type(model) == 'string' and joaat(model)) or nil
+    local core = qbCore()
+    if core and type(model) == 'string' and core.Shared and core.Shared.Vehicles then
+        local shared = core.Shared.Vehicles[model]
+        if shared then return shared.brand and (shared.brand .. ' ' .. shared.name) or shared.name end
+    end
+    if hash then
+        local label = GetLabelText(GetDisplayNameFromVehicleModel(hash))
+        if label and label ~= 'NULL' then return label end
+    end
+    return tostring(model or '?')
+end
+
+local function qsTakeOut(spot, plate)
+    local sx, sy, sz, sh = spawnOffset(spot)
+    local ok, data = qsRequest('codem-lib:garage:qsTakeOut', plate,
+        { x = sx, y = sy, z = sz, w = sh }, spot.vehicleType)
+    if not ok or type(data) ~= 'table' then
+        print(('[codem-lib] qs take-out of %s refused: %s'):format(tostring(plate), tostring(data)))
+        return
+    end
+
+    local veh
+    local deadline = GetGameTimer() + 10000
+    repeat
+        local current = currentVehicle()
+        if current and trimPlate(GetVehicleNumberPlateText(current)) == data.plate then
+            veh = current
+        else
+            Wait(100)
+        end
+    until veh or GetGameTimer() > deadline
+    if not veh then return end
+
+    if CodemLib.Keys and CodemLib.Keys.Restore then pcall(CodemLib.Keys.Restore, veh, data.plate) end
+end
+
 local function openQs(spot)
-    if tryExport('qs-advancedgarages', 'OpenGarageMenu', spot.garageName) then return true end
-    return false, 'failed'
+    if currentVehicle() then
+        if tryExport('qs-advancedgarages', 'OpenGarageMenu', spot.garageName) then return true end
+        return false, 'failed'
+    end
+
+    local _, list = qsRequest('codem-lib:garage:qsList')
+    if type(list) ~= 'table' or #list == 0 then return false, 'empty' end
+
+    local entries = {}
+    for i, v in ipairs(list) do
+        entries[i] = { title = modelLabel(v.model), description = v.plate }
+    end
+    local id = ('codem_garage_%s'):format(tostring(spot.id or spot.garageName))
+    local title = (spot.label ~= nil and spot.label ~= '') and spot.label or 'Garage'
+    local shown = qbList(id, title, entries, function(index)
+        local v = list[index]
+        if v then CreateThread(function() qsTakeOut(spot, v.plate) end) end
+    end)
+    if not shown then return false, 'failed' end
+    return true
 end
 
 local function bindQs(spot)

@@ -231,8 +231,9 @@ end
 
 ---Run a provider call, pcall-guarded. Returns ok, result.
 ---@param verb 'add'|'remove'|'get'
-local function dispatch(verb, account, amount)
-    local name = provider()
+---@param via string|nil  provider to use for this one call instead of the configured one
+local function dispatch(verb, account, amount, via)
+    local name = type(via) == 'string' and (ALIASES[via] or via) or provider()
     local p = PROVIDERS[name]
     if not p then
         print(('[codem-lib] Society.%s: no banking provider for "%s" - set LibConfig.Society.provider')
@@ -254,27 +255,30 @@ end
 ---Deposit into a society/job fund.
 ---@param account string society name (usually the mechanic job)
 ---@param amount number
+---@param via string|nil provider for this one call (default: the configured one)
 ---@return boolean
-function Society.Pay(account, amount)
+function Society.Pay(account, amount, via)
     if not enabled() or not account or type(amount) ~= 'number' or amount <= 0 then return false end
-    return (dispatch('add', account, math.floor(amount + 0.5))) == true
+    return (dispatch('add', account, math.floor(amount + 0.5), via)) == true
 end
 
 ---Withdraw from a society/job fund.
 ---@param account string
 ---@param amount number
+---@param via string|nil
 ---@return boolean
-function Society.Remove(account, amount)
+function Society.Remove(account, amount, via)
     if not enabled() or not account or type(amount) ~= 'number' or amount <= 0 then return false end
-    return (dispatch('remove', account, math.floor(amount + 0.5))) == true
+    return (dispatch('remove', account, math.floor(amount + 0.5), via)) == true
 end
 
 ---Read a society/job fund balance.
 ---@param account string
+---@param via string|nil
 ---@return number
-function Society.Balance(account)
+function Society.Balance(account, via)
     if not account then return 0 end
-    local ok, res = dispatch('get', account, nil)
+    local ok, res = dispatch('get', account, nil, via)
     return (ok and tonumber(res)) or 0
 end
 

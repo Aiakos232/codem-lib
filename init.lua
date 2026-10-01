@@ -52,14 +52,14 @@ if IsDuplicityVersion() then
         ---@param account string society/job name
         ---@param amount number
         ---@return boolean
-        Pay = function(account, amount) return exports[LIB]:SocietyPay(account, amount) end,
+        Pay = function(account, amount, via) return exports[LIB]:SocietyPay(account, amount, via) end,
         ---@param account string
         ---@param amount number
         ---@return boolean
-        Remove = function(account, amount) return exports[LIB]:SocietyRemove(account, amount) end,
+        Remove = function(account, amount, via) return exports[LIB]:SocietyRemove(account, amount, via) end,
         ---@param account string
         ---@return number
-        Balance = function(account) return exports[LIB]:SocietyBalance(account) end,
+        Balance = function(account, via) return exports[LIB]:SocietyBalance(account, via) end,
     }
 
     CodemLib.Billing = {

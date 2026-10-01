@@ -23,6 +23,7 @@ client_scripts {
     'modules/vehiclekeys/client.lua',
     'modules/fuel/client.lua',
     'modules/notify/client.lua',
+    'modules/medical/client.lua',
     'modules/textui/client.lua',
     'modules/hud/client.lua',
     'modules/progress/client.lua',

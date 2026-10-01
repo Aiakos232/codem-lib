@@ -301,6 +301,12 @@ if IsDuplicityVersion() then
     end)
 else
     -- ── Client ──────────────────────────────────────────────────────────────
+    CodemLib.Medical = {
+        ---Dead or in last stand (ambulance scripts keep the ped alive while down).
+        ---@return boolean
+        IsDead = function() return exports[LIB]:IsPlayerDead() end,
+    }
+
     CodemLib.Keys = {
         ---@param vehicle number vehicle entity
         ---@param plate? string

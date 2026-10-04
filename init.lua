@@ -414,6 +414,12 @@ else
     ---@return boolean completed
     CodemLib.Progress = function(opts) return exports[LIB]:Progress(opts) end
 
+    ---@return boolean active true while the progress provider shows a bar, whoever started it
+    CodemLib.ProgressActive = function() return exports[LIB]:ProgressActive() == true end
+
+    --- Stops the bar the progress provider is showing.
+    CodemLib.CancelProgress = function() return exports[LIB]:CancelProgress() end
+
     ---@param difficulty string|string[]
     ---@param inputs? string[]
     ---@return boolean passed

@@ -42,6 +42,26 @@ PROVIDERS['cd_dispatch'] = function(src, jobs, coords, data, blip, flash)
     })
 end
 
+PROVIDERS['codem-dispatchv2'] = function(src, jobs, coords, data, blip, flash)
+    exports['codem-dispatchv2']:SendDispatchAlert({
+        code = data.code,
+        message = data.title,
+        street = data.street or data.description,
+        coords = coords,
+        jobs = jobs,
+        priority = data.priority == true,
+        blip = {
+            sprite = blip.sprite,
+            color = blip.colour,
+            scale = blip.scale,
+            flash = blip.flash,
+            length = blip.length,
+            sound = data.sound and (data.sound.alert or data.sound.name) or nil,
+            sound2 = data.sound and data.sound.ref or nil,
+        },
+    })
+end
+
 PROVIDERS['codem-dispatch'] = function(src, jobs, coords, data, blip, flash)
     exports['codem-dispatch']:CustomDispatch({
         type = data.code or 'General',
@@ -161,7 +181,7 @@ PROVIDERS['native'] = function(src, jobs, coords, data, blip, flash)
 end
 
 local CANDIDATES = {
-    'ps-dispatch', 'cd_dispatch', 'codem-dispatch', 'core_dispatch', 'aty_dispatch', 'rcore_dispatch',
+    'codem-dispatchv2', 'ps-dispatch', 'cd_dispatch', 'codem-dispatch', 'core_dispatch', 'aty_dispatch', 'rcore_dispatch',
     'tk_dispatch', 'lb-tablet', 'origen_police', 'tgiann-policealert',
 }
 

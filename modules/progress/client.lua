@@ -8,7 +8,23 @@
       Progress(opts)  -- { label, duration, canCancel?, useWhileDead?,
                       --   disable?: { move?, car?, combat?, mouse? },
                       --   anim?: table, prop?: table }  -> boolean completed
+      ProgressActive() -- true while the provider shows a bar, whoever started it
+      CancelProgress() -- stops the bar the provider is showing
 ]]
+
+-- ox shape { model, bone, pos, rot } (or a list of them) to qb progressbar's prop/propTwo
+local function qbProp(prop)
+    if type(prop) ~= 'table' then return nil end
+    if prop[1] then return qbProp(prop[1]), qbProp(prop[2]) end
+    if not prop.model then return nil end
+    local pos, rot = prop.pos, prop.rot
+    return {
+        model = prop.model,
+        bone = prop.bone or 60309,
+        coords = pos and vector3(pos.x or pos[1] or 0.0, pos.y or pos[2] or 0.0, pos.z or pos[3] or 0.0) or vector3(0.0, 0.0, 0.0),
+        rotation = rot and vector3(rot.x or rot[1] or 0.0, rot.y or rot[2] or 0.0, rot.z or rot[3] or 0.0) or vector3(0.0, 0.0, 0.0),
+    }
+end
 
 local PROVIDERS = {
     ['ox'] = {
@@ -23,12 +39,15 @@ local PROVIDERS = {
                 prop         = opts.prop,
             }) == true
         end,
+        active = function() return exports.ox_lib:progressActive() == true end,
+        cancel = function() exports.ox_lib:cancelProgress() end,
     },
 
     -- qb progressbar (callback API, wrapped to a blocking boolean).
     ['progressbar'] = {
         run = function(opts)
             local done = nil
+            local prop, propTwo = qbProp(opts.prop)
             exports['progressbar']:Progress({
                 name = ('codemlib_%s'):format(GetGameTimer()),
                 duration = opts.duration,
@@ -45,13 +64,18 @@ local PROVIDERS = {
                     animDict = opts.anim.dict,
                     anim = opts.anim.clip,
                     flags = opts.anim.flag,
+                    task = opts.anim.scenario,
                 } or nil,
+                prop = prop,
+                propTwo = propTwo,
             }, function(cancelled)
                 done = not cancelled
             end)
             while done == nil do Wait(50) end
             return done
         end,
+        active = function() return exports['progressbar']:isDoingSomething() == true end,
+        cancel = function() ExecuteCommand('cancelprogress') end,
     },
 }
 
@@ -85,4 +109,17 @@ exports('Progress', function(opts)
         return false
     end
     return res == true
+end)
+
+exports('ProgressActive', function()
+    local p = PROVIDERS[provider()]
+    if not p or not p.active then return false end
+    local ok, active = pcall(p.active)
+    return ok and active == true
+end)
+
+exports('CancelProgress', function()
+    local p = PROVIDERS[provider()]
+    if not p or not p.cancel then return false end
+    return pcall(p.cancel)
 end)

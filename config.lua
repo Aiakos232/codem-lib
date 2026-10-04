@@ -155,7 +155,7 @@ LibConfig.Doorlock = {
 }
 
 -- Police / emergency dispatch provider (server-side alerts).
--- Supported: 'ps-dispatch' | 'cd_dispatch' | 'codem-dispatch' | 'core_dispatch'
+-- Supported: 'codem-dispatchv2' | 'ps-dispatch' | 'cd_dispatch' | 'codem-dispatch' | 'core_dispatch'
 -- | 'aty_dispatch' | 'rcore_dispatch' | 'tk_dispatch' | 'lb-tablet' | 'origen_police'
 -- | 'tgiann-policealert' | 'native' (notify + blip to matching jobs) | 'auto'
 LibConfig.Dispatch = {

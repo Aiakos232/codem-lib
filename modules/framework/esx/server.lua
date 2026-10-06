@@ -164,36 +164,8 @@ function Framework.Server.GetJobs()
     return (ESX.GetJobs and ESX.GetJobs()) or {}
 end
 
----ESX keeps jobs in the `jobs` / `job_grades` tables, so registering one is a
----database write the framework owns. Only newer builds expose it; older ones
----return false rather than half-registering a job that vanishes on restart.
----@param name string
----@param job table { label, grades }
----@return boolean
-function Framework.Server.CreateJob(name, job)
-    if type(name) ~= 'string' or type(job) ~= 'table' then return false end
-    if not ESX.CreateJob then return false end
-
-    local grades = {}
-    for gradeId, grade in pairs(job.grades or {}) do
-        grades[#grades + 1] = {
-            grade = tonumber(gradeId) or 0,
-            name = grade.name,
-            label = grade.label or grade.name,
-            salary = grade.payment or grade.salary or 0,
-        }
-    end
-
-    ESX.CreateJob(name, job.label or name, grades)
-    return true
-end
-
----@return boolean
-function Framework.Server.RemoveJob()
-    -- ESX has no removal API; deleting the rows behind its back would leave
-    -- every player holding that job in an unknown state.
-    return false
-end
+-- CreateJob / RemoveJob / SetJobGrade live further down, next to the job
+-- employee helpers, because they share the database helper and the cache.
 
 --------------------------------------------------------------------------------
 -- Character loaded
@@ -332,23 +304,44 @@ local function dbQuery(sql, params)
     return Citizen.Await(p)
 end
 
+---Character names keyed by what was asked for. Accepts character identifiers
+---as they are, and 'license:<hash>' account identifiers: ESX Legacy stores the
+---license without its prefix, with a 'charN:' slot in front when multicharacter
+---is on, so those are matched both ways.
+---@param identifiers string[]
+---@return table<string, string>
 function Framework.Server.GetCharacterNames(identifiers)
     if type(identifiers) ~= 'table' or #identifiers == 0 then return {} end
 
-    local placeholders = {}
-    for index = 1, #identifiers do placeholders[index] = '?' end
+    local clauses, params, askedAs = {}, {}, {}
+    for _, identifier in ipairs(identifiers) do
+        if type(identifier) == 'string' and identifier ~= '' then
+            clauses[#clauses + 1] = '`identifier` = ?'
+            params[#params + 1] = identifier
+            askedAs[identifier] = identifier
+
+            local bare = identifier:match('^license:(.+)$')
+            if bare then
+                clauses[#clauses + 1] = '`identifier` = ? OR `identifier` LIKE ?'
+                params[#params + 1] = bare
+                params[#params + 1] = '%:' .. bare
+                askedAs[bare] = identifier
+            end
+        end
+    end
+    if #clauses == 0 then return {} end
 
     local rows = dbQuery(
-        ('SELECT `identifier`, `firstname`, `lastname` FROM `users` WHERE `identifier` IN (%s)')
-            :format(table.concat(placeholders, ',')),
-        identifiers
+        ('SELECT `identifier`, `firstname`, `lastname` FROM `users` WHERE %s'):format(table.concat(clauses, ' OR ')),
+        params
     ) or {}
 
     local out = {}
     for _, row in ipairs(rows) do
         if row.identifier and row.firstname then
+            local key = askedAs[row.identifier] or askedAs[row.identifier:match('^[^:]+:(.+)$') or '']
             local name = ('%s %s'):format(row.firstname, row.lastname or ''):gsub('%s+$', '')
-            if name ~= '' then out[row.identifier] = name end
+            if key and name ~= '' and not out[key] then out[key] = name end
         end
     end
     return out
@@ -447,6 +440,210 @@ function Framework.Server.GetJobGrades(job)
         out[#out + 1] = { level = row.grade, label = row.label or tostring(row.grade) }
     end
     return out
+end
+
+---ESX grade names are identifiers ('boss', 'recruit'); the readable text is the label.
+---@param text any
+---@return string
+local function gradeKey(text)
+    local key = tostring(text or ''):lower():gsub('[^%w]+', '_'):gsub('^_+', ''):gsub('_+$', '')
+    return key ~= '' and key or 'grade'
+end
+
+---@param job table { label, grades }
+---@return table[] grades in the shape ESX.CreateJob takes, lowest first
+local function esxGrades(job)
+    local grades = {}
+    for gradeId, grade in pairs(job.grades or {}) do
+        if type(grade) == 'table' then
+            local label = grade.label or grade.name or tostring(gradeId)
+            grades[#grades + 1] = {
+                grade = tonumber(gradeId) or 0,
+                -- ESX has no isboss flag; the 'boss' grade name is the convention.
+                name = grade.isboss and 'boss' or gradeKey(grade.name or label),
+                label = label,
+                salary = math.floor(tonumber(grade.payment or grade.salary) or 0),
+            }
+        end
+    end
+    table.sort(grades, function(a, b) return a.grade < b.grade end)
+    return grades
+end
+
+---@return boolean true when the registered job already equals what is asked for
+local function sameJob(existing, label, grades)
+    if type(existing) ~= 'table' or existing.label ~= label or type(existing.grades) ~= 'table' then return false end
+
+    local count = 0
+    for _ in pairs(existing.grades) do count = count + 1 end
+    if count ~= #grades then return false end
+
+    for _, grade in ipairs(grades) do
+        local row = existing.grades[tostring(grade.grade)]
+        if type(row) ~= 'table' or row.name ~= grade.name or row.label ~= grade.label
+            or (tonumber(row.salary) or 0) ~= grade.salary then
+            return false
+        end
+    end
+    return true
+end
+
+---Drops a job's rows and makes the core read its job list again.
+---@param name string
+---@return boolean
+local function deleteJobRows(name)
+    local ok = pcall(function()
+        dbQuery('DELETE FROM `job_grades` WHERE `job_name` = ?', { name })
+        dbQuery('DELETE FROM `jobs` WHERE `name` = ?', { name })
+    end)
+    if not ok then return false end
+
+    employeeCache[name] = nil
+    if ESX.RefreshJobs then ESX.RefreshJobs() end
+    return true
+end
+
+---ESX keeps jobs in the `jobs` / `job_grades` tables, so registering one is a
+---database write the framework owns. A job that is already registered the same
+---way is left alone (ESX would refuse it and print an error on every boot); one
+---that changed is rewritten. Builds without ESX.CreateJob return false.
+---@param name string
+---@param job table { label, grades }
+---@return boolean
+function Framework.Server.CreateJob(name, job)
+    if type(name) ~= 'string' or name == '' or type(job) ~= 'table' then return false end
+    if not ESX.CreateJob then return false end
+
+    local grades = esxGrades(job)
+    if #grades == 0 then return false end
+
+    local label = job.label or name
+    local existing = ((ESX.GetJobs and ESX.GetJobs()) or {})[name]
+    if existing then
+        if sameJob(existing, label, grades) then return true end
+        if not ESX.RefreshJobs or not deleteJobRows(name) then return false end
+    end
+
+    return ESX.CreateJob(name, label, grades) ~= false
+end
+
+---Deletes a job from the core. Release its members first (ReleaseJobMembers),
+---otherwise they keep a job name the core no longer knows.
+---@param name string
+---@return boolean
+function Framework.Server.RemoveJob(name)
+    if type(name) ~= 'string' or name == '' or name == 'unemployed' then return false end
+    if not ESX.RefreshJobs then return false end
+    if not ((ESX.GetJobs and ESX.GetJobs()) or {})[name] then return false end
+
+    return deleteJobRows(name)
+end
+
+---Sets a character's job and grade: through the core while they are online,
+---in their `users` row while they are not.
+---@param cid string
+---@param job string
+---@param grade number
+---@return boolean success
+---@return table|nil errorResult `{ code, message }` when the job or grade does not exist
+function Framework.Server.SetJobGrade(cid, job, grade)
+    if type(cid) ~= 'string' or cid == '' or type(job) ~= 'string' or job == '' then return false end
+    grade = math.floor(tonumber(grade) or 0)
+
+    if ESX.DoesJobExist and not ESX.DoesJobExist(job, grade) then
+        return false, { code = 'job_refused', message = ('job "%s" has no grade %d'):format(job, grade) }
+    end
+
+    local xPlayer = ESX.GetPlayerFromIdentifier and ESX.GetPlayerFromIdentifier(cid) or nil
+    if xPlayer and xPlayer.setJob then
+        local previous = xPlayer.job and xPlayer.job.name or nil
+        xPlayer.setJob(job, grade)
+
+        employeeCache[job] = nil
+        if previous then employeeCache[previous] = nil end
+        return true
+    end
+
+    local ok, result = pcall(dbQuery,
+        'UPDATE `users` SET `job` = ?, `job_grade` = ? WHERE `identifier` = ?', { job, grade, cid })
+    if not ok or type(result) ~= 'table' or (tonumber(result.affectedRows) or 0) < 1 then return false end
+
+    -- The job they left is unknown here, so every cached list is dropped.
+    for cached in pairs(employeeCache) do employeeCache[cached] = nil end
+    return true
+end
+
+---Fires an employee (back to unemployed).
+---@param cid string
+---@param job string
+---@return boolean
+function Framework.Server.FireFromJob(cid, job)
+    local ok = Framework.Server.SetJobGrade(cid, 'unemployed', 0)
+    if ok and type(job) == 'string' then employeeCache[job] = nil end
+    return ok
+end
+
+---Removes everyone from a job, online or offline. Call this before deleting the job.
+---@param name string
+---@return boolean
+function Framework.Server.ReleaseJobMembers(name)
+    if type(name) ~= 'string' or name == '' or name == 'unemployed' then return false end
+
+    employeeCache[name] = nil
+
+    for _, xPlayer in pairs((ESX.GetExtendedPlayers and ESX.GetExtendedPlayers()) or {}) do
+        if xPlayer and xPlayer.setJob and xPlayer.job and xPlayer.job.name == name then
+            xPlayer.setJob('unemployed', 0)
+        end
+    end
+
+    local ok = pcall(dbQuery,
+        'UPDATE `users` SET `job` = ?, `job_grade` = ? WHERE `job` = ?', { 'unemployed', 0, name })
+    return ok
+end
+
+---Edits the identity esx_identity keeps: the `users` row first, then the loaded
+---player, so a failed write changes nothing. Fields ESX does not have are ignored.
+---@param src number
+---@param patch table { firstname?, lastname?, birthdate?, gender? }
+---@return boolean
+function Framework.Server.SetCharInfo(src, patch)
+    local xPlayer = Framework.Server.GetPlayer(src)
+    if not xPlayer or type(patch) ~= 'table' then return false end
+
+    local columns, values, variables = {}, {}, {}
+    local function field(column, variable, value)
+        columns[#columns + 1] = ('`%s` = ?'):format(column)
+        values[#values + 1] = value
+        variables[variable] = value
+    end
+
+    if type(patch.firstname) == 'string' then field('firstname', 'firstName', patch.firstname) end
+    if type(patch.lastname) == 'string' then field('lastname', 'lastName', patch.lastname) end
+    if type(patch.birthdate) == 'string' then field('dateofbirth', 'dateofbirth', patch.birthdate) end
+    if patch.gender ~= nil then
+        field('sex', 'sex', (patch.gender == 'female' or patch.gender == 1) and 'f' or 'm')
+    end
+    if #columns == 0 then return false end
+
+    values[#values + 1] = xPlayer.identifier
+    local ok = pcall(dbQuery,
+        ('UPDATE `users` SET %s WHERE `identifier` = ?'):format(table.concat(columns, ', ')), values)
+    if not ok then return false end
+
+    if xPlayer.set then
+        for variable, value in pairs(variables) do xPlayer.set(variable, value) end
+    end
+
+    if (variables.firstName or variables.lastName) and xPlayer.setName then
+        local get = xPlayer.get
+        local first = variables.firstName or (get and get('firstName')) or ''
+        local last = variables.lastName or (get and get('lastName')) or ''
+        local name = ('%s %s'):format(first, last):gsub('^%s+', ''):gsub('%s+$', '')
+        if name ~= '' then xPlayer.setName(name) end
+    end
+
+    return true
 end
 
 --------------------------------------------------------------------------------

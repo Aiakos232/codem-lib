@@ -58,6 +58,17 @@ local function install()
             -- one of these each frame pays it every frame.
             local ready, fn = pcall(function() return exports[TARGET][name] end)
             if not ready or not fn then return end
+            if name == 'registerHook' or name == 'removeHooks' then
+                -- a hook belongs to the script that registered it, not to codem-lib: the
+                -- inventory drops it when that script stops, so the caller goes along
+                local _, from = pcall(function() return exports[TARGET][name .. 'From'] end)
+                setCallback(function(...)
+                    local caller = GetInvokingResource()
+                    if from and caller then return from(nil, caller, ...) end
+                    return fn(nil, ...)
+                end)
+                return
+            end
             setCallback(function(...)
                 return fn(nil, ...)
             end)

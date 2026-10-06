@@ -212,6 +212,22 @@ local CANDIDATES = {
 -- Dispatch
 --------------------------------------------------------------------------------
 
+local unusable, warned = {}, {}
+
+local function warnOnce(key, msg)
+    if warned[key] then return end
+    warned[key] = true
+    print(msg)
+end
+
+local function resetProvider(res)
+    if not PROVIDERS[res] then return end
+    unusable[res] = nil
+    warned = {}
+end
+AddEventHandler('onResourceStart', resetProvider)
+AddEventHandler('onResourceStop', resetProvider)
+
 ---Resolve the active banking provider (config override or auto-detect).
 ---@return string
 local function provider()
@@ -219,7 +235,7 @@ local function provider()
     cfg = ALIASES[cfg] or cfg
     if cfg ~= 'auto' then return cfg end
     for _, res in ipairs(CANDIDATES) do
-        if GetResourceState(res) == 'started' then return res end
+        if not unusable[res] and GetResourceState(res) == 'started' then return res end
     end
     return 'none'
 end
@@ -233,15 +249,23 @@ end
 ---@param verb 'add'|'remove'|'get'
 ---@param via string|nil  provider to use for this one call instead of the configured one
 local function dispatch(verb, account, amount, via)
-    local name = type(via) == 'string' and (ALIASES[via] or via) or provider()
+    local explicit = type(via) == 'string'
+    local name = explicit and (ALIASES[via] or via) or provider()
     local p = PROVIDERS[name]
     if not p then
-        print(('[codem-lib] Society.%s: no banking provider for "%s" - set LibConfig.Society.provider')
+        warnOnce('none:' .. tostring(name), ('[codem-lib] Society.%s: no banking provider for "%s" - set LibConfig.Society.provider')
             :format(verb, tostring(name)))
         return false
     end
     local ok, res = pcall(p[verb], account, amount)
     if not ok then
+        if tostring(res):find('No such export', 1, true) then
+            warnOnce('export:' .. name, ('[codem-lib] Society: "%s" is running but has no society exports (%s) - set LibConfig.Society.provider to your banking script')
+                :format(name, tostring(res)))
+            unusable[name] = true
+            if not explicit and provider() ~= name then return dispatch(verb, account, amount) end
+            return false
+        end
         print(('[codem-lib] Society.%s via "%s" failed: %s'):format(verb, name, tostring(res)))
         return false
     end

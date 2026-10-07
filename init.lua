@@ -94,6 +94,7 @@ if IsDuplicityVersion() then
     CodemLib.Phone = {
         Get = function(identifier, character) return exports[LIB]:GetPhoneNumber(identifier, character) end,
         Owner = function(number) return exports[LIB]:GetPhoneOwner(number) end,
+        Provider = function() return exports[LIB]:GetPhoneProvider() end,
     }
 
     CodemLib.Medical = {
@@ -198,6 +199,8 @@ if IsDuplicityVersion() then
     CodemLib.Vehicles = {
         ---@param limit? number @return table[]|nil nil = no supported framework
         List = function(limit) return exports[LIB]:GetVehicles(limit) end,
+        ---@param text string, limit? number @return table[]|nil
+        Search = function(text, limit) return exports[LIB]:SearchVehicles(text, limit) end,
         ---@param owner string citizenid (qb) / identifier (esx)
         ---@param limit? number @return table[]|nil
         ByOwner = function(owner, limit) return exports[LIB]:GetOwnerVehicles(owner, limit) end,
@@ -371,6 +374,8 @@ else
         ---@param texture? number
         ---@return boolean blocked by the appearance script's blacklist for this player
         IsBlocked = function(kind, id, drawable, texture) return exports[LIB]:IsClothingBlocked(kind, id, drawable, texture) end,
+        ---@return boolean the appearance script was asked to put the saved skin back on the player
+        Reload = function() return exports[LIB]:ReloadAppearance() end,
         SetAppearance = function(ped, appearance) return exports[LIB]:setPedAppearance(ped, appearance) end,
         -- local event fired after the appearance script dressed the player on its own
         ChangedEvent = 'codem-lib:wardrobe:changed',

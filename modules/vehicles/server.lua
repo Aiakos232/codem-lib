@@ -61,6 +61,7 @@ local QUERIES = {
     qb = {
         list        = SELECT_QB .. ' ORDER BY {order} LIMIT ?',
         byOwner     = SELECT_QB .. ' WHERE v.citizenid = ? ORDER BY {order} LIMIT ?',
+        search      = SELECT_QB .. ' WHERE v.plate LIKE ? OR v.vehicle LIKE ? OR v.citizenid LIKE ? ORDER BY {order} LIMIT ?',
         one         = SELECT_QB .. ' WHERE v.plate = ? LIMIT 1',
         counts      = 'SELECT `state`, COUNT(*) AS `count` FROM `player_vehicles` GROUP BY `state`',
         setState    = 'UPDATE `player_vehicles` SET `state` = ? WHERE `plate` = ?',
@@ -81,6 +82,7 @@ local QUERIES = {
     esx = {
         list        = SELECT_ESX .. ' ORDER BY o.plate LIMIT ?',
         byOwner     = SELECT_ESX .. ' WHERE o.owner = ? ORDER BY o.plate LIMIT ?',
+        search      = SELECT_ESX .. ' WHERE o.plate LIKE ? OR o.owner LIKE ? ORDER BY o.plate LIMIT ?',
         one         = SELECT_ESX .. ' WHERE o.plate = ? LIMIT 1',
         counts      = 'SELECT `stored`, COUNT(*) AS `count` FROM `owned_vehicles` GROUP BY `stored`',
         setState    = 'UPDATE `owned_vehicles` SET `stored` = ? WHERE `plate` = ?',
@@ -244,6 +246,22 @@ function Vehicles.list(limit)
     if not fw then return nil end
 
     local rows = query(QUERIES[fw].list, { math.floor(tonumber(limit) or 100) })
+    return rows and normaliseAll(rows, fw) or nil
+end
+
+---Rows whose plate, model (qb) or owner id contains the text.
+---@param text string
+---@param limit number|nil
+---@return table[]|nil
+function Vehicles.search(text, limit)
+    local fw = framework()
+    if not fw or type(text) ~= 'string' or text == '' then return nil end
+
+    local like = '%' .. text:gsub('[%%_\\]', '\\%0') .. '%'
+    local max = math.floor(tonumber(limit) or 100)
+    local params = fw == 'esx' and { like, like, max } or { like, like, like, max }
+
+    local rows = query(QUERIES[fw].search, params)
     return rows and normaliseAll(rows, fw) or nil
 end
 
@@ -479,6 +497,7 @@ end
 --------------------------------------------------------------------------------
 
 exports('GetVehicles', function(limit) return Vehicles.list(limit) end)
+exports('SearchVehicles', function(text, limit) return Vehicles.search(text, limit) end)
 exports('GetOwnerVehicles', function(owner, limit) return Vehicles.byOwner(owner, limit) end)
 exports('GetVehicle', function(plate) return Vehicles.get(plate) end)
 exports('GetStoredVehicles', function(owner) return Vehicles.stored(owner) end)

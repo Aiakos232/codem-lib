@@ -618,7 +618,10 @@ PROVIDERS['qb-phone'] = {
         local receiver = identifierOf(target)
         if not receiver then return nil end
         local framework = CodemLib and CodemLib.Framework
-        local name = data.senderSource and framework and framework.GetName and framework.GetName(data.senderSource) or data.jobLabel
+        local fromSystem = data.senderAccount == 'SYSTEM' and data.jobLabel or nil
+        local name = fromSystem
+            or (data.senderSource and framework and framework.GetName and framework.GetName(data.senderSource))
+            or data.jobLabel
         -- Older tables have no `reason` column.
         local id = insert('INSERT INTO `phone_invoices` (`citizenid`, `amount`, `society`, `sender`, `sendercitizenid`, `reason`) VALUES (?, ?, ?, ?, ?, ?)',
             { receiver, data.amount, data.job, name, data.senderIdentifier, data.reason })

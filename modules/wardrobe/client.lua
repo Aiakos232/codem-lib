@@ -12,6 +12,10 @@
 --                                           appearance script's own save path;
 --                                           the lists given replace what the ped
 --                                           wears on those slots in the saved skin
+--   ReloadAppearance()                      put the skin the appearance script has
+--                                           saved for this character back on the
+--                                           player (after a ped model change, a
+--                                           disguise, ...)
 --   IsClothingBlocked(kind, id, drawable, texture)
 --                                           whether the appearance script's
 --                                           blacklist keeps this piece from the
@@ -25,7 +29,8 @@
 -- the game's plain indices.
 --
 -- A script codem-lib does not know: fill LibConfig.Wardrobe.setClothing /
--- saveClothing / changedEvents in config.lua, or add an ADAPTERS entry below.
+-- saveClothing / reload / changedEvents in config.lua, or add an ADAPTERS entry
+-- below.
 
 local function started(name)
     return GetResourceState(name) == 'started'
@@ -370,9 +375,40 @@ local LOADED_EVENTS = {
     'ox:playerLoaded',
 }
 
+-- Reloading the stored skin: the appearance script reads what it has saved and
+-- puts it on the player itself, model included.
+
+local function illeniumReload()
+    -- true skips the script's own /reloadskin cooldown
+    TriggerEvent('illenium-appearance:client:reloadSkin', true)
+    return true
+end
+
+local function qbReload()
+    TriggerServerEvent('qb-clothes:loadPlayerSkin')
+    return true
+end
+
+local function esxReload()
+    CreateThread(function()
+        local skin = frameworkCallback('esx_skin:getPlayerSkin')
+        if type(skin) == 'table' then TriggerEvent('skinchanger:loadSkin', skin) end
+    end)
+    return true
+end
+
+-- A script without a reload of its own: nearly every appearance script answers
+-- its framework's stock one for compatibility.
+local function frameworkReload()
+    if started('es_extended') then return esxReload() end
+    if started('qb-core') or started('qbx_core') then return qbReload() end
+    return false
+end
+
 local ADAPTERS = {
     ['codem-clothing'] = {
         set = illeniumSet('codem-clothing'),
+        reload = illeniumReload,
         -- only the clothes are written, the rest of the stored skin is left alone
         save = function(components, props)
             if tryExport('codem-clothing', 'savePedClothing', components, props) then return true end
@@ -387,6 +423,7 @@ local ADAPTERS = {
     ['illenium-appearance'] = {
         set = illeniumSet('illenium-appearance'),
         save = illeniumSave('illenium-appearance'),
+        reload = illeniumReload,
         events = { '17mov_CharacterSystem:SkinMenuClosed' },
     },
     ['fivem-appearance'] = {
@@ -397,21 +434,30 @@ local ADAPTERS = {
             TriggerServerEvent('fivem-appearance:server:saveAppearance', appearance)
             return true
         end,
+        reload = function()
+            TriggerEvent('fivem-appearance:client:reloadSkin')
+            -- wasabi's fork has no such event and answers esx_skin's callback
+            if started('es_extended') then esxReload() end
+            return true
+        end,
         events = {},
     },
     ['qs-appearance'] = {
         set = illeniumSet('qs-appearance'),
         save = illeniumSave('qs-appearance'),
+        reload = illeniumReload,
         events = { '17mov_CharacterSystem:SkinMenuClosed' },
     },
     ['4bit_appearance'] = {
         set = illeniumSet('4bit_appearance'),
         save = illeniumSave('4bit_appearance'),
+        reload = illeniumReload,
         events = { '17mov_CharacterSystem:SkinMenuClosed' },
     },
     ['qf_skinmenu'] = {
         set = illeniumSet('qf_skinmenu'),
         save = illeniumSave('qf_skinmenu'),
+        reload = illeniumReload,
         events = { '17mov_CharacterSystem:SkinMenuClosed' },
     },
     ['crm-appearance'] = {
@@ -448,6 +494,10 @@ local ADAPTERS = {
             TriggerEvent('rcore_clothing:saveCurrentSkin')
             return true
         end,
+        reload = function()
+            TriggerServerEvent('rcore_clothing:reloadSkin')
+            return true
+        end,
         appearance = function(ped, data)
             if ped == PlayerPedId() then
                 wearPlayerModel(data.ped_model)
@@ -474,6 +524,13 @@ local ADAPTERS = {
             TriggerServerEvent('qb-clothing:saveSkin', GetEntityModel(PlayerPedId()), json.encode(clothing))
             return true
         end,
+        reload = function()
+            CreateThread(function()
+                local skin = frameworkCallback('0r-clothing:getSkin:server')
+                if skin ~= nil then TriggerEvent('0r-clothing:client:loadPlayerClothing', skin, PlayerPedId()) end
+            end)
+            return true
+        end,
         events = { '0r-clothing:client:loadPlayerClothing', 'qb-clothing:client:loadPlayerClothing' },
     },
     ['qb-clothing'] = {
@@ -491,6 +548,7 @@ local ADAPTERS = {
             TriggerServerEvent('qb-clothing:saveSkin', GetEntityModel(PlayerPedId()), json.encode(skin))
             return true
         end,
+        reload = qbReload,
         events = { 'qb-clothing:client:loadPlayerClothing', 'qb-clothing:client:loadOutfit' },
     },
     ['esx_skin'] = {
@@ -505,6 +563,7 @@ local ADAPTERS = {
             TriggerServerEvent('esx_skin:save', skin)
             return true
         end,
+        reload = esxReload,
         events = { 'esx_skin:onSkinSaved' },
     },
 }
@@ -567,7 +626,21 @@ local function clothingBlocked(kind, id, drawable, texture)
     return ok and result == true
 end
 
+---@return boolean a reload was asked of the appearance script
+local function reloadAppearance()
+    local c = cfg()
+    if type(c.reload) == 'function' then
+        local ok, result = pcall(c.reload)
+        return ok and result ~= false
+    end
+
+    local a = ADAPTERS[currentProvider()]
+    local ok, result = pcall(a and a.reload or frameworkReload)
+    return ok and result == true
+end
+
 exports('GetPedClothing', getClothing)
+exports('ReloadAppearance', reloadAppearance)
 exports('SetPedClothing', setClothing)
 exports('SavePedClothing', saveClothing)
 exports('IsClothingBlocked', clothingBlocked)

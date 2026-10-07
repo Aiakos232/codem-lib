@@ -46,5 +46,12 @@ function Phone.Owner(number)
     return nil
 end
 
+function Phone.Provider()
+    if started('codem-phone') then return 'codem-phone' end
+    if started('lb-phone') then return 'lb-phone' end
+    return nil
+end
+
 exports('GetPhoneNumber', Phone.Get)
 exports('GetPhoneOwner', Phone.Owner)
+exports('GetPhoneProvider', Phone.Provider)

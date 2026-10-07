@@ -30,11 +30,17 @@ local isQbox = FW == 'qbox'
 --- there yet, and the whole bridge would be lost with the error.
 local coreObject
 local function resolveCore()
-    if coreObject == nil then
+    if not coreObject then
         local ok, obj = pcall(function() return exports['qb-core']:GetCoreObject() end)
-        coreObject = (ok and type(obj) == 'table') and obj or false
+        coreObject = (ok and type(obj) == 'table') and obj or nil
     end
-    return coreObject or nil
+    return coreObject
+end
+
+if not isQbox then
+    AddEventHandler('QBCore:Server:UpdateObject', function()
+        coreObject = nil
+    end)
 end
 
 local QBCore = not isQbox and setmetatable({}, {
@@ -181,11 +187,14 @@ function Framework.Server.SetCharInfo(src, patch)
     for key, value in pairs(info) do next_[key] = value end
     for key, value in pairs(changes) do next_[key] = value end
 
+    -- SetPlayerData runs inside qb-core, on the real character.
     if Player.Functions.SetCharInfo then
         Player.Functions.SetCharInfo(next_)
-    else
-        Player.PlayerData.charinfo = next_
+    elseif Player.Functions.SetPlayerData then
+        Player.Functions.SetPlayerData('charinfo', next_)
         if Player.Functions.Save then Player.Functions.Save() end
+    else
+        return false
     end
     return true
 end
@@ -286,8 +295,11 @@ function Framework.Server.CreateJob(name, job)
     end
 
     if QBCore and QBCore.Functions.AddJob then
-        QBCore.Functions.AddJob(name, payload)
-        return true
+        local ok, reason = QBCore.Functions.AddJob(name, payload)
+        if ok == false and reason == 'job_exists' and QBCore.Functions.UpdateJob then
+            ok = QBCore.Functions.UpdateJob(name, payload)
+        end
+        return ok ~= false
     end
     return false
 end

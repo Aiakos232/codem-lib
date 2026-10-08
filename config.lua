@@ -13,7 +13,7 @@ LibConfig.Debug = false
 LibConfig.Framework = 'auto'
 
 -- Society / job fund (banking) provider.
--- Supported: 'qb-banking' | 'qb-management' | 'Renewed-Banking' | 'okokBanking'
+-- Supported: 'codem-supreme-banking' | 'qb-banking' | 'qb-management' | 'Renewed-Banking' | 'okokBanking'
 -- | 'fd_banking' | 'tgg-banking' | 'tgiann-bank' | 'qs-banking' | 'wasabi_banking'
 -- | 'snipe-banking' | 'crm-banking' | 'kartik-banking' | 'p_banking' | 'nfs-banking'
 -- | 'nfs-billing' | 'RxBanking' | 'sd-multijob' | 'vms_bossmenu' | 'nass_bossmenu'

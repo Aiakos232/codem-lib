@@ -113,3 +113,35 @@ Inventory.resizeStash = function(stashId, slots, weight)
     ak:SaveInventory(stashId)
     return true
 end
+
+local function loaded(characterId)
+    local ok, found = pcall(function() return exports['ak47_inventory']:LoadInventory(characterId) end)
+    return ok and found == true
+end
+
+--@param characterId: string [citizenid / identifier of a character that is not in the server]
+--@return items: table|nil
+Inventory.offlineItems = function(characterId)
+    if not loaded(characterId) then return nil end
+    return exports['ak47_inventory']:GetInventoryItems(characterId)
+end
+
+--@param characterId: string
+--@param verb: string ['add' | 'remove' | 'clear']
+--@return done: boolean
+Inventory.offlineAction = function(characterId, verb, itemName, count)
+    if not loaded(characterId) then return false end
+
+    local done = false
+    if verb == 'add' then
+        done = exports['ak47_inventory']:AddItem(characterId, itemName, count) ~= false
+    elseif verb == 'remove' then
+        done = exports['ak47_inventory']:RemoveItem(characterId, itemName, count) ~= false
+    elseif verb == 'clear' then
+        exports['ak47_inventory']:ClearInventory(characterId)
+        done = true
+    end
+
+    if done then pcall(function() exports['ak47_inventory']:SaveInventory(characterId) end) end
+    return done
+end

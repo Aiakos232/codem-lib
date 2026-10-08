@@ -111,3 +111,5 @@ Inventory.clearStash = function(stashId)
     exports['qs-inventory']:ClearOtherInventory('stash', stashId)
     return true
 end
+
+Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')

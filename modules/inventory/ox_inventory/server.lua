@@ -206,3 +206,5 @@ Inventory.stashItems = function(stashId)
     if type(inv) ~= 'table' then return nil end
     return inv.items or {}
 end
+
+Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'count')

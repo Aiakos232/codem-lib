@@ -111,3 +111,37 @@ Inventory.resizeStash = function(stashId, slots, weight)
     exports['core_inventory']:updateInventorySize(tostring(stashId), slots, 10)
     return true
 end
+
+local function storedName(characterId)
+    return 'content-' .. (characterId:gsub(':', ''))
+end
+
+local function storedContent(characterId)
+    local inventory = exports['core_inventory']:getInventory(storedName(characterId))
+    if type(inventory) ~= 'table' then return nil end
+    return type(inventory.content) == 'table' and inventory.content or nil
+end
+
+--@param characterId: string [citizenid / identifier of a character that is not in the server]
+--@return items: table|nil
+Inventory.offlineItems = function(characterId)
+    return storedContent(characterId)
+end
+
+--@param characterId: string
+--@param verb: string ['add' | 'remove' | 'clear']
+--@return done: boolean
+Inventory.offlineAction = function(characterId, verb, itemName, count)
+    if not storedContent(characterId) then return false end
+
+    local name = storedName(characterId)
+    if verb == 'add' then
+        return exports['core_inventory']:addItem(name, itemName, count, nil, 'content') ~= false
+    elseif verb == 'remove' then
+        return exports['core_inventory']:removeItem(name, itemName, count, 'content') ~= false
+    elseif verb == 'clear' then
+        exports['core_inventory']:clearInventory(name)
+        return true
+    end
+    return false
+end

@@ -226,3 +226,117 @@ if IsDuplicityVersion() then
         return nil
     end
 end
+
+if IsDuplicityVersion() then
+    local FRAMEWORK_COLUMN = {
+        esx = { table = 'users', key = 'identifier' },
+        qb = { table = 'players', key = 'citizenid' },
+    }
+
+    local function plainStack(entry)
+        local extra = entry.metadata or entry.info
+        return extra == nil or (type(extra) == 'table' and next(extra) == nil)
+    end
+
+    ---@param tableName string|nil nil = players / users
+    ---@param keyColumn string|nil
+    ---@param countKey 'count'|'amount'
+    ---@return function offlineItems, function offlineAction
+    function LibStoredInventory(tableName, keyColumn, countKey)
+        local function place()
+            if tableName then return tableName, keyColumn end
+            local own = GetResourceState('es_extended') == 'started' and FRAMEWORK_COLUMN.esx or FRAMEWORK_COLUMN.qb
+            return own.table, own.key
+        end
+
+        local function load(characterId)
+            local name, key = place()
+            local raw = MySQL.Sync.fetchScalar(('SELECT `inventory` FROM `%s` WHERE `%s` = ? LIMIT 1'):format(name, key), { characterId })
+            if type(raw) ~= 'string' or raw == '' then return nil end
+
+            local ok, items = pcall(json.decode, raw)
+            return ok and type(items) == 'table' and items or nil
+        end
+
+        local function save(characterId, items)
+            local name, key = place()
+            local body = next(items) == nil and '[]' or json.encode(items)
+            local changed = MySQL.Sync.execute(('UPDATE `%s` SET `inventory` = ? WHERE `%s` = ?'):format(name, key), { body, characterId })
+            return (tonumber(changed) or 0) > 0
+        end
+
+        local function remove(items, itemName, count, slot)
+            local left, kept, listed = count, {}, #items > 0
+            for key, entry in pairs(items) do
+                local keep = true
+                if type(entry) == 'table' and left > 0 and (entry.name or entry.item) == itemName
+                    and (not slot or tonumber(entry.slot) == slot) then
+                    local field = entry.count ~= nil and 'count' or 'amount'
+                    local have = math.floor(tonumber(entry[field]) or 0)
+                    local take = math.min(have, left)
+                    left = left - take
+                    entry[field] = have - take
+                    keep = entry[field] > 0
+                end
+                if keep then
+                    if listed then kept[#kept + 1] = entry else kept[key] = entry end
+                end
+            end
+            return left < count and kept or nil
+        end
+
+        local function add(items, itemName, count)
+            local field, taken, sample = nil, {}, nil
+            local listed = #items > 0 or next(items) == nil
+            for _, entry in pairs(items) do
+                if type(entry) == 'table' then
+                    sample = sample or entry
+                    field = field or (entry.count ~= nil and 'count') or (entry.amount ~= nil and 'amount') or nil
+                    if tonumber(entry.slot) then taken[math.floor(tonumber(entry.slot))] = true end
+                end
+            end
+            field = field or countKey
+
+            for _, entry in pairs(items) do
+                if type(entry) == 'table' and (entry.name or entry.item) == itemName and plainStack(entry) then
+                    entry[field] = math.floor(tonumber(entry[field]) or 0) + count
+                    return items
+                end
+            end
+
+            local slot = 1
+            while taken[slot] do slot = slot + 1 end
+
+            local entry = { name = itemName, slot = slot }
+            entry[field] = count
+            if field == 'amount' then
+                entry.info = {}
+                entry.type = sample and sample.type or 'item'
+            end
+
+            if listed then items[#items + 1] = entry else items[tostring(slot)] = entry end
+            return items
+        end
+
+        local function act(characterId, verb, itemName, count, slot)
+            local items = load(characterId)
+            if not items then return false end
+
+            local changed
+            if verb == 'clear' then
+                changed = {}
+            elseif type(itemName) == 'string' and tonumber(count) and count >= 1 then
+                count = math.floor(count)
+                if verb == 'add' then
+                    changed = add(items, itemName, count)
+                elseif verb == 'remove' then
+                    changed = remove(items, itemName, count, tonumber(slot) and math.floor(slot) or nil)
+                end
+            end
+
+            return changed ~= nil and save(characterId, changed)
+        end
+
+        return load, act
+    end
+end

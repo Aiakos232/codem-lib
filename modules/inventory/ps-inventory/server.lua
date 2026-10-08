@@ -162,3 +162,5 @@ Inventory.clearStash = function(stashId)
     MySQL.update.await('UPDATE stashitems SET items = ? WHERE stash = ?', { '[]', tostring(stashId) })
     return true
 end
+
+Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')

@@ -268,8 +268,10 @@ if IsDuplicityVersion() then
         Stash = function(stashId) return exports[LIB]:GetStashItems(stashId) end,
         ---@param characterId string @return table|nil items a character that is not in the server last saved
         Offline = function(characterId) return exports[LIB]:GetOfflineItems(characterId) end,
-        ---@param characterId string, items table @return boolean saved
-        SetOffline = function(characterId, items) return exports[LIB]:SetOfflineItems(characterId, items) == true end,
+        ---@param characterId string, verb 'add'|'remove'|'clear', itemName? string, count? number, slot? number @return boolean|nil
+        OfflineAction = function(characterId, verb, itemName, count, slot)
+            return exports[LIB]:OfflineItemAction(characterId, verb, itemName, count, slot)
+        end,
         Drop = function(prefix, items, coords) return exports[LIB]:CustomDrop(prefix, items, coords) end,
         CreateShop = function(shopName, data) return exports[LIB]:CreateShop(shopName, data) end,
         ---@param stashId string, label string, slots number, weight number, groups? table, coords? vector3, opts? table

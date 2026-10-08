@@ -269,3 +269,5 @@ AddEventHandler('onResourceStart', function(res)
     guardHook = nil
     EnsureGuardHook()
 end)
+
+Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')

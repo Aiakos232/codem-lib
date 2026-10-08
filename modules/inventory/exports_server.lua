@@ -86,69 +86,27 @@ local function optional(fnName, ...)
     return out
 end
 
-local STORED_ITEMS = {
-    esx = 'SELECT `inventory` FROM `users` WHERE `identifier` = ? LIMIT 1',
-    qb = 'SELECT `inventory` FROM `players` WHERE `citizenid` = ? LIMIT 1',
-}
-
--- inventories that save into the framework's own `inventory` column
-local COLUMN_BACKED = {
-    ['qb-inventory'] = true,
-    ['ps-inventory'] = true,
-    ['jpr-inventory'] = true,
-    ['ox_inventory'] = true,
-    ['codem-inventoryv2'] = true,
-}
-
----Items a character carried when it was last saved, for a character that is not in the server.
----A provider that keeps them outside the framework's own column answers through `offlineItems`;
----one that is neither listed above nor answers returns nil rather than a column nobody writes.
----@param characterId string  citizenid / identifier
----@return table|nil items  raw list as stored (nil = cannot be read)
+---@param characterId string citizenid / identifier
+---@return table|nil items
 exports('GetOfflineItems', function(characterId)
+    if type(characterId) ~= 'string' or characterId == '' then return nil end
+    return optional('offlineItems', characterId)
+end)
+
+---@param characterId string
+---@param verb 'add'|'remove'|'clear'
+---@param itemName string|nil
+---@param count number|nil
+---@param slot number|nil
+---@return boolean|nil done nil = not supported
+exports('OfflineItemAction', function(characterId, verb, itemName, count, slot)
     if type(characterId) ~= 'string' or characterId == '' then return nil end
 
     local res = LibGetInventoryResource()
     local provider = res and LibInventoryProviders[res]
-    if provider and provider.offlineItems then
-        local ok, out = pcall(provider.offlineItems, characterId)
-        return ok and type(out) == 'table' and out or nil
-    end
-    if not COLUMN_BACKED[res] then return nil end
+    if not provider or not provider.offlineAction then return nil end
 
-    local sql = GetResourceState('es_extended') == 'started' and STORED_ITEMS.esx or STORED_ITEMS.qb
-    local ok, raw = pcall(MySQL.Sync.fetchScalar, sql, { characterId })
-    if not ok or type(raw) ~= 'string' or raw == '' then return nil end
-
-    local decoded, items = pcall(json.decode, raw)
-    return decoded and type(items) == 'table' and items or nil
-end)
-
-local STORE_ITEMS = {
-    esx = 'UPDATE `users` SET `inventory` = ? WHERE `identifier` = ?',
-    qb = 'UPDATE `players` SET `inventory` = ? WHERE `citizenid` = ?',
-}
-
----Replace what a character that is not in the server has stored. The list keeps the shape GetOfflineItems gave.
----@param characterId string  citizenid / identifier
----@param items table
----@return boolean saved  false when this inventory keeps its items somewhere the lib cannot write
-exports('SetOfflineItems', function(characterId, items)
-    if type(characterId) ~= 'string' or characterId == '' or type(items) ~= 'table' then return false end
-
-    local res = LibGetInventoryResource()
-    local provider = res and LibInventoryProviders[res]
-    if provider and provider.offlineItems then
-        if not provider.setOfflineItems then return false end
-        local ok, saved = pcall(provider.setOfflineItems, characterId, items)
-        return ok and saved == true
-    end
-    if not COLUMN_BACKED[res] then return false end
-
-    local sql = GetResourceState('es_extended') == 'started' and STORE_ITEMS.esx or STORE_ITEMS.qb
-    local body = next(items) == nil and '[]' or json.encode(items)
-    local ok, changed = pcall(MySQL.Sync.execute, sql, { body, characterId })
-    return ok and (tonumber(changed) or 0) > 0
+    return optional('offlineAction', characterId, verb, itemName, count, slot) == true
 end)
 
 exports('ClearStash', function(stashId) return optional('clearStash', stashId) end)

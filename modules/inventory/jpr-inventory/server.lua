@@ -148,3 +148,5 @@ Inventory.openStashServer = function(src, stashId, invData)
     })
     return true
 end
+
+Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')

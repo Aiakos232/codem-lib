@@ -59,9 +59,9 @@ local SELECT_ESX = [[
 
 local QUERIES = {
     qb = {
-        list        = SELECT_QB .. ' ORDER BY {order} LIMIT ?',
+        list        = SELECT_QB .. ' ORDER BY {order} LIMIT ? OFFSET ?',
         byOwner     = SELECT_QB .. ' WHERE v.citizenid = ? ORDER BY {order} LIMIT ?',
-        search      = SELECT_QB .. ' WHERE v.plate LIKE ? OR v.vehicle LIKE ? OR v.citizenid LIKE ? ORDER BY {order} LIMIT ?',
+        search      = SELECT_QB .. ' WHERE v.plate LIKE ? OR v.vehicle LIKE ? OR v.citizenid LIKE ? ORDER BY {order} LIMIT ? OFFSET ?',
         one         = SELECT_QB .. ' WHERE v.plate = ? LIMIT 1',
         counts      = 'SELECT `state`, COUNT(*) AS `count` FROM `player_vehicles` GROUP BY `state`',
         setState    = 'UPDATE `player_vehicles` SET `state` = ? WHERE `plate` = ?',
@@ -80,9 +80,9 @@ local QUERIES = {
         ]],
     },
     esx = {
-        list        = SELECT_ESX .. ' ORDER BY o.plate LIMIT ?',
+        list        = SELECT_ESX .. ' ORDER BY o.plate LIMIT ? OFFSET ?',
         byOwner     = SELECT_ESX .. ' WHERE o.owner = ? ORDER BY o.plate LIMIT ?',
-        search      = SELECT_ESX .. ' WHERE o.plate LIKE ? OR o.owner LIKE ? ORDER BY o.plate LIMIT ?',
+        search      = SELECT_ESX .. ' WHERE o.plate LIKE ? OR o.owner LIKE ? ORDER BY o.plate LIMIT ? OFFSET ?',
         one         = SELECT_ESX .. ' WHERE o.plate = ? LIMIT 1',
         counts      = 'SELECT `stored`, COUNT(*) AS `count` FROM `owned_vehicles` GROUP BY `stored`',
         setState    = 'UPDATE `owned_vehicles` SET `stored` = ? WHERE `plate` = ?',
@@ -240,26 +240,29 @@ end
 --------------------------------------------------------------------------------
 
 ---@param limit number|nil
+---@param offset number|nil rows to skip, for reading the list a page at a time
 ---@return table[]|nil nil when no supported framework is running
-function Vehicles.list(limit)
+function Vehicles.list(limit, offset)
     local fw = framework()
     if not fw then return nil end
 
-    local rows = query(QUERIES[fw].list, { math.floor(tonumber(limit) or 100) })
+    local rows = query(QUERIES[fw].list, { math.floor(tonumber(limit) or 100), math.max(0, math.floor(tonumber(offset) or 0)) })
     return rows and normaliseAll(rows, fw) or nil
 end
 
 ---Rows whose plate, model (qb) or owner id contains the text.
 ---@param text string
 ---@param limit number|nil
+---@param offset number|nil rows to skip
 ---@return table[]|nil
-function Vehicles.search(text, limit)
+function Vehicles.search(text, limit, offset)
     local fw = framework()
     if not fw or type(text) ~= 'string' or text == '' then return nil end
 
     local like = '%' .. text:gsub('[%%_\\]', '\\%0') .. '%'
     local max = math.floor(tonumber(limit) or 100)
-    local params = fw == 'esx' and { like, like, max } or { like, like, like, max }
+    local skip = math.max(0, math.floor(tonumber(offset) or 0))
+    local params = fw == 'esx' and { like, like, max, skip } or { like, like, like, max, skip }
 
     local rows = query(QUERIES[fw].search, params)
     return rows and normaliseAll(rows, fw) or nil
@@ -496,8 +499,8 @@ end
 -- Exports
 --------------------------------------------------------------------------------
 
-exports('GetVehicles', function(limit) return Vehicles.list(limit) end)
-exports('SearchVehicles', function(text, limit) return Vehicles.search(text, limit) end)
+exports('GetVehicles', function(limit, offset) return Vehicles.list(limit, offset) end)
+exports('SearchVehicles', function(text, limit, offset) return Vehicles.search(text, limit, offset) end)
 exports('GetOwnerVehicles', function(owner, limit) return Vehicles.byOwner(owner, limit) end)
 exports('GetVehicle', function(plate) return Vehicles.get(plate) end)
 exports('GetStoredVehicles', function(owner) return Vehicles.stored(owner) end)

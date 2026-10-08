@@ -197,10 +197,12 @@ if IsDuplicityVersion() then
         take the same words.
     ]]
     CodemLib.Vehicles = {
-        ---@param limit? number @return table[]|nil nil = no supported framework
-        List = function(limit) return exports[LIB]:GetVehicles(limit) end,
-        ---@param text string, limit? number @return table[]|nil
-        Search = function(text, limit) return exports[LIB]:SearchVehicles(text, limit) end,
+        -- List and Search take an offset; consumers check this before relying on it.
+        Paged = true,
+        ---@param limit? number, offset? number @return table[]|nil nil = no supported framework
+        List = function(limit, offset) return exports[LIB]:GetVehicles(limit, offset) end,
+        ---@param text string, limit? number, offset? number @return table[]|nil
+        Search = function(text, limit, offset) return exports[LIB]:SearchVehicles(text, limit, offset) end,
         ---@param owner string citizenid (qb) / identifier (esx)
         ---@param limit? number @return table[]|nil
         ByOwner = function(owner, limit) return exports[LIB]:GetOwnerVehicles(owner, limit) end,

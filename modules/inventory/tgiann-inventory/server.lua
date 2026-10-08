@@ -288,3 +288,19 @@ Inventory.unguardStashes = function(handle)
     exports['tgiann-inventory']:RemoveHooks(handle)
     return true
 end
+
+--@param characterId: string [citizenid / identifier of a character that is not in the server]
+--@return items: table|nil [as last saved]
+Inventory.offlineItems = function(characterId)
+    local raw = MySQL.Sync.fetchScalar('SELECT `inventory` FROM `tgiann_inventory_player` WHERE `citizenid` = ? LIMIT 1', { characterId })
+    if type(raw) ~= 'string' or raw == '' then return nil end
+    return json.decode(raw)
+end
+
+--@param characterId: string
+--@param items: table [same shape offlineItems returned]
+--@return saved: boolean
+Inventory.setOfflineItems = function(characterId, items)
+    local body = next(items) == nil and '[]' or json.encode(items)
+    return (MySQL.Sync.execute('UPDATE `tgiann_inventory_player` SET `inventory` = ? WHERE `citizenid` = ?', { body, characterId }) or 0) > 0
+end

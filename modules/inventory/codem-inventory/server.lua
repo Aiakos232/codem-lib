@@ -121,3 +121,19 @@ Inventory.clearStash = function(stashId)
     exports['codem-inventory']:UpdateStash(stashId, {})
     return true
 end
+
+--@param characterId: string [citizenid / identifier of a character that is not in the server]
+--@return items: table|nil [as last saved]
+Inventory.offlineItems = function(characterId)
+    local raw = MySQL.Sync.fetchScalar('SELECT `inventory` FROM `codem_new_inventory` WHERE `identifier` = ? LIMIT 1', { characterId })
+    if type(raw) ~= 'string' or raw == '' then return nil end
+    return json.decode(raw)
+end
+
+--@param characterId: string
+--@param items: table [same shape offlineItems returned]
+--@return saved: boolean
+Inventory.setOfflineItems = function(characterId, items)
+    local body = next(items) == nil and '[]' or json.encode(items)
+    return (MySQL.Sync.execute('UPDATE `codem_new_inventory` SET `inventory` = ? WHERE `identifier` = ?', { body, characterId }) or 0) > 0
+end

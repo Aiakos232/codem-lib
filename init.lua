@@ -266,6 +266,10 @@ if IsDuplicityVersion() then
         Capacity = function(src) return exports[LIB]:GetCapacity(src) end,
         ---@param stashId string|number @return table|nil items (nil = provider cannot read stashes)
         Stash = function(stashId) return exports[LIB]:GetStashItems(stashId) end,
+        ---@param characterId string @return table|nil items a character that is not in the server last saved
+        Offline = function(characterId) return exports[LIB]:GetOfflineItems(characterId) end,
+        ---@param characterId string, items table @return boolean saved
+        SetOffline = function(characterId, items) return exports[LIB]:SetOfflineItems(characterId, items) == true end,
         Drop = function(prefix, items, coords) return exports[LIB]:CustomDrop(prefix, items, coords) end,
         CreateShop = function(shopName, data) return exports[LIB]:CreateShop(shopName, data) end,
         ---@param stashId string, label string, slots number, weight number, groups? table, coords? vector3, opts? table

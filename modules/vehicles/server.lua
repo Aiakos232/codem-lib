@@ -445,6 +445,128 @@ function Vehicles.refuel(plate)
     return execute(QUERIES[fw].refuel, { trim(plate) })
 end
 
+--[[
+    A new car has to land where the server's garage script looks for it, and
+    the garage scripts disagree: most add their own columns to the framework
+    table, several keep their garages in the database under ids no other
+    server shares. So the row is written the framework's way first and then
+    moved into a garage with whatever the running script reads:
+
+      qb-garages, qbx_garages, okokGarage   garage + state = 1
+      cd_garage                             in_garage, garage_id, garage_type
+      jg-advancedgarages                    in_garage, impound, garage_id
+      mGarage                               stored, type, garage / parking
+      esx_garage                            stored = 1; no parking = any garage
+      op-garages                            stored / state 0 means parked
+      codem-garagesv2                       its own CreateVehicle export
+
+    A garage id is taken from the script when it can name one, otherwise from
+    the garage most cars on this server already stand in.
+]]
+
+---@param name string
+---@return boolean
+local function running(name)
+    return GetResourceState(name) == 'started'
+end
+
+---@param tbl string
+---@return table<string, boolean>
+local function columnsOf(tbl)
+    local rows = query([[
+        SELECT `COLUMN_NAME` AS `name` FROM information_schema.COLUMNS
+        WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = ?
+    ]], { tbl }) or {}
+
+    local set = {}
+    for _, row in ipairs(rows) do set[tostring(row.name)] = true end
+    return set
+end
+
+---@param tbl string
+---@param column string  one of the fixed names used below, never caller input
+---@return string|nil  the value most rows hold
+local function mostUsed(tbl, column)
+    local rows = query(([[
+        SELECT `%s` AS `value` FROM `%s`
+        WHERE `%s` IS NOT NULL AND `%s` <> '' AND `%s` <> 'OUT'
+        GROUP BY `%s` ORDER BY COUNT(*) DESC LIMIT 1
+    ]]):format(column, tbl, column, column, column, column))
+
+    local value = rows and rows[1] and rows[1].value
+    return value ~= nil and tostring(value) or nil
+end
+
+---@return string|nil
+local function cdGarageId()
+    local ok, id = pcall(function()
+        return exports['cd_garage']:GetDefaultGarageIdForVehicleType('car')
+    end)
+    return ok and type(id) == 'string' and id ~= '' and id or nil
+end
+
+---@param fw 'qb'|'esx'
+---@param tbl string
+---@param columns table<string, boolean>
+---@param asked string|nil  garage the caller named
+---@return table<string, any>
+local function garagePlacement(fw, tbl, columns, asked)
+    local set = {}
+    local mono = running('mGarage')
+    local named = fw == 'qb' and 'garage' or 'parking'
+
+    local anyGarage = fw == 'esx' and running('esx_garage') and not asked
+
+    if columns[named] and not anyGarage then
+        local garage = asked or mostUsed(tbl, named)
+        if not garage and fw == 'qb' then
+            garage = (mono and 'Pillbox Hill') or (running('okokGarage') and 'legion') or 'pillboxgarage'
+        elseif not garage and mono then
+            garage = 'Pillbox Hill'
+        end
+        if garage then set[named] = garage end
+    end
+
+    if columns.in_garage then set.in_garage = 1 end
+    if columns.impound and running('jg-advancedgarages') then set.impound = 0 end
+
+    if columns.garage_id then
+        local id = (running('cd_garage') and cdGarageId()) or mostUsed(tbl, 'garage_id')
+        if id then set.garage_id = id end
+    end
+
+    if columns.garage_type and running('cd_garage') then set.garage_type = 'car' end
+
+    if mono then
+        if columns.stored then set.stored = 1 end
+        if columns.type then set.type = 'automobile' end
+    end
+
+    if running('vms_garagesv2') and columns.type then set.type = 'vehicle' end
+
+    if running('op-garages') then
+        local parked = fw == 'qb' and 'state' or 'stored'
+        if columns[parked] then set[parked] = 0 end
+    end
+
+    return set
+end
+
+---@param tbl string
+---@param plate string
+---@param set table<string, any>
+local function place(tbl, plate, set)
+    local names, values = {}, {}
+    for column, value in pairs(set) do
+        names[#names + 1] = ('`%s` = ?'):format(column)
+        values[#values + 1] = value
+    end
+    if #names == 0 then return end
+
+    values[#values + 1] = plate
+    execute(('UPDATE `%s` SET %s WHERE `plate` = ?'):format(tbl, table.concat(names, ', ')), values)
+end
+
 ---Writes a vehicle into a player's garage.
 ---@param data { owner: string, license: string|nil, model: string, plate: string, garage: string|nil }
 ---@return boolean
@@ -457,18 +579,35 @@ function Vehicles.create(data)
     local plate = type(data.plate) == 'string' and trim(data.plate) or nil
     if not owner or not model or not plate or plate == '' then return false end
 
-    if fw == 'esx' then
-        return execute(QUERIES.esx.create, { owner, plate, json.encode({ model = GetHashKey(model) }) })
+    if running('codem-garagesv2') then
+        local ok, row = pcall(function()
+            return exports['codem-garagesv2']:CreateVehicle(owner, model, plate, data.garage)
+        end)
+        if ok and row then return true end
     end
 
-    return execute(QUERIES.qb.create, {
-        data.license or '',
-        owner,
-        model,
-        GetHashKey(model),
-        plate,
-        data.garage or 'pillboxgarage',
-    })
+    local tbl = fw == 'esx' and 'owned_vehicles' or 'player_vehicles'
+    local columns = columnsOf(tbl)
+    local set = garagePlacement(fw, tbl, columns, data.garage)
+
+    local created
+    if fw == 'esx' then
+        created = execute(QUERIES.esx.create, { owner, plate, json.encode({ model = GetHashKey(model) }) })
+    else
+        created = execute(QUERIES.qb.create, {
+            data.license or '',
+            owner,
+            model,
+            GetHashKey(model),
+            plate,
+            set.garage or data.garage or 'pillboxgarage',
+        })
+        set.garage = nil
+    end
+    if not created then return false end
+
+    place(tbl, plate, set)
+    return true
 end
 
 --------------------------------------------------------------------------------

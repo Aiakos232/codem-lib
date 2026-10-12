@@ -118,7 +118,7 @@ LibConfig.Target = {
 }
 
 -- Vehicle fuel provider.
--- Supported: 'ox_fuel' | 'LegacyFuel' | 'cdn-fuel' | 'qb-fuel' | 'lc_fuel'
+-- Supported: 'codem-supreme-fuel' | 'ox_fuel' | 'LegacyFuel' | 'cdn-fuel' | 'qb-fuel' | 'lc_fuel'
 -- | 'Renewed-Fuel' | 'myFuel' | 'okokGasStation' | 'qs-fuelstations'
 -- | 'rcore_fuel' | 'x-fuel' | 'auto'
 LibConfig.Fuel = {

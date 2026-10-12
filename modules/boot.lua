@@ -58,7 +58,7 @@ local function summary()
     })
 
     local fuel = detect(LibConfig.Fuel and LibConfig.Fuel.provider, {
-        'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
+        'codem-supreme-fuel', 'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
         'myFuel', 'okokGasStation', 'qs-fuelstations', 'rcore_fuel', 'x-fuel',
     })
 

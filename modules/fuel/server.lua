@@ -20,6 +20,12 @@ end
 
 -- s = src, v = vehicle entity, n = fuel amount (0-100).
 local PROVIDERS = {
+    ['codem-supreme-fuel'] = {
+        set = function(_, v, n)
+            return exports['codem-supreme-fuel']:SetFuel(v, n)
+        end,
+    },
+
     ['ox_fuel'] = {
         set = function(_, v, n)
             local state = Entity(v).state
@@ -56,7 +62,7 @@ local PROVIDERS = {
 
 -- 'auto' detection order — first running resource wins.
 local CANDIDATES = {
-    'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
+    'codem-supreme-fuel', 'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
     'myFuel', 'okokGasStation', 'qs-fuelstations', 'rcore_fuel', 'x-fuel',
 }
 

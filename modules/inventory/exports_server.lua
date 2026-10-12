@@ -23,9 +23,29 @@ local function call(fnName, ...)
     return out
 end
 
+local function change(fnName, ...)
+    local res = LibGetInventoryResource()
+    local provider = res and LibInventoryProviders[res]
+    if not provider then
+        print(('[codem-lib] Inventory.%s: no supported inventory running (active: %s) - set LibConfig.Inventory.provider')
+            :format(fnName, tostring(res)))
+        return false
+    end
+    if not provider[fnName] then
+        print(('[codem-lib] Inventory.%s: not supported by "%s"'):format(fnName, res))
+        return false
+    end
+    local ok, out = pcall(provider[fnName], ...)
+    if not ok then
+        print(('[codem-lib] Inventory.%s via "%s" failed: %s'):format(fnName, res, tostring(out)))
+        return false
+    end
+    return out
+end
+
 exports('GetPlayerItems', function(src) return call('getPlayerItems', src) end)
-exports('AddItem', function(src, itemName, count, metadata, slot) return call('addItem', src, itemName, count, metadata, slot) end)
-exports('RemoveItem', function(src, itemName, count, metadata, slot) return call('removeItem', src, itemName, count, metadata, slot) end)
+exports('AddItem', function(src, itemName, count, metadata, slot) return change('addItem', src, itemName, count, metadata, slot) end)
+exports('RemoveItem', function(src, itemName, count, metadata, slot) return change('removeItem', src, itemName, count, metadata, slot) end)
 exports('GetItemCount', function(src, itemName, metadata) return call('getItemCount', src, itemName, metadata) end)
 -- Weight/space check. Providers without a canCarry method default to allowed
 -- (true) silently — not every inventory exposes one, and blocking on absence

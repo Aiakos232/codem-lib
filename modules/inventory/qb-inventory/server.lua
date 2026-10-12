@@ -71,7 +71,6 @@ end
 --@param itemMetadata: table [item metadata, optional]
 --@return count: number [amount of items in inventory]
 Inventory.getItemCount = function(playerId, itemName, itemMetadata)
-    print('getItemCount', playerId, itemName, itemMetadata)
     local Player = itemMetadata and LibGetQbPlayer(playerId)
     if Player then
         for k, v in pairs(Player.PlayerData.items or {}) do
@@ -80,8 +79,6 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
             end
         end
     else
-        print('itemname', itemName)
-        print(exports['qb-inventory']:GetItemCount(playerId, itemName))
         return exports['qb-inventory']:GetItemCount(playerId, itemName) or 0
     end
 

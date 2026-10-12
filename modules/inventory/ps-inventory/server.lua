@@ -75,10 +75,13 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
             end
         end
     else
-        local itemData = exports['ps-inventory']:GetItemByName(playerId, itemName)
-        if itemData then
-            return itemData.count
+        local total = 0
+        for k, v in pairs(Inventory.getPlayerItems(playerId) or {}) do
+            if v.name == itemName then
+                total = total + (tonumber(v.amount) or tonumber(v.count) or 0)
+            end
         end
+        return total
     end
 
     return 0

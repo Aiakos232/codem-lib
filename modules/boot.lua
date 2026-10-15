@@ -124,7 +124,7 @@ local function summary()
 
     local weather = detect(LibConfig.Weather and LibConfig.Weather.provider, {
         'Renewed-Weathersync', 'qbx_weathersync', 'qb-weathersync', 'cd_easytime', 'av_sync', 'av_weather',
-        'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync',
+        'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync', 'night_natural_disasters',
     }, 'native')
     if LibConfig.Weather and LibConfig.Weather.provider == false then weather = 'native' end
 

@@ -54,6 +54,7 @@ local localOverride = nil
 local PROVIDERS = {
     'Renewed-Weathersync', 'qbx_weathersync', 'qb-weathersync', 'cd_easytime', 'av_sync', 'av_weather',
     'wc_weathersync', 'nc_weathersync', 'ss-weathersync', 'weathersync', 'vSync', 'codem-dynamicweather',
+    'night_natural_disasters',
 }
 
 local function activeProviders()
@@ -88,6 +89,8 @@ local function pauseProviders(pause)
                     weather:clearLocalTime()
                 end
             end)
+        elseif name == 'night_natural_disasters' then
+            pcall(function() exports['night_natural_disasters']:PauseSynchronization(pause) end)
         elseif name == 'av_weather' or name == 'av_sync' then
             if pause then
                 TriggerEvent('av_weather:freeze', true, localOverride and localOverride.hour or 12, localOverride and localOverride.minute or 0, localOverride and localOverride.weather or 'EXTRASUNNY', false, false, false)

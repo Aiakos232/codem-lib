@@ -10,6 +10,7 @@ local CANDIDATES = {
     'ss-weathersync',
     'weathersync',
     'vSync',
+    'night_natural_disasters',
 }
 
 ---@type table<string, string[]> capability -> export names to try, in order
@@ -19,6 +20,12 @@ local EXPORTS = {
     blackout = { 'setBlackout', 'SetBlackout', 'setBlackoutState', 'toggleBlackout' },
     freeze   = { 'setTimeFreeze', 'SetTimeFreeze', 'FreezeTime', 'freezeTime', 'setFreezeTime' },
     dynamic  = { 'setDynamicWeather', 'SetDynamicWeather', 'toggleDynamicWeather' },
+}
+
+local TOGGLES = {
+    blackout = { 'GetIsBlackoutActive', 'ToggleBlackout' },
+    freeze   = { 'GetIsTimeFrozen', 'ToggleFreezeTime' },
+    dynamic  = { 'GetIsWeatherDynamic', 'ToggleDynamicWeather' },
 }
 
 ---@type string|nil
@@ -79,7 +86,24 @@ local function call(capability, ...)
         end
     end
 
-    return false
+    local toggle = TOGGLES[capability]
+    if not toggle then return false end
+
+    local okGet, current = pcall(function()
+        return exports[resource][toggle[1]](exports[resource])
+    end)
+    if not okGet or type(current) ~= 'boolean' then return false end
+
+    if current ~= (select(1, ...) == true) then
+        local ok, err = pcall(function()
+            return exports[resource][toggle[2]](exports[resource])
+        end)
+        if not ok then
+            print(('[codem-lib] weather bridge: %s:%s failed (%s)'):format(resource, toggle[2], tostring(err)))
+            return false
+        end
+    end
+    return true
 end
 
 ---@param names string[]
@@ -114,10 +138,10 @@ end
 
 ---@return table
 local function getState()
-    local weather = read({ 'getWeatherState', 'GetWeatherState', 'getWeather' })
-    local blackout = read({ 'getBlackoutState', 'GetBlackoutState', 'getBlackout' })
-    local freeze = read({ 'getTimeFreezeState', 'GetTimeFreezeState', 'getFreezeTime' })
-    local dynamic = read({ 'getDynamicWeather', 'GetDynamicWeather' })
+    local weather = read({ 'getWeatherState', 'GetWeatherState', 'getWeather', 'GetCurrentWeather' })
+    local blackout = read({ 'getBlackoutState', 'GetBlackoutState', 'getBlackout', 'GetIsBlackoutActive' })
+    local freeze = read({ 'getTimeFreezeState', 'GetTimeFreezeState', 'getFreezeTime', 'GetIsTimeFrozen' })
+    local dynamic = read({ 'getDynamicWeather', 'GetDynamicWeather', 'GetIsWeatherDynamic' })
 
     if type(weather) == 'string' then state.weather = weather:upper() end
     if type(blackout) == 'boolean' then state.blackout = blackout end

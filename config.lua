@@ -66,7 +66,8 @@ LibConfig.Inventory = {
 }
 
 -- Text UI provider (persistent on-screen prompts).
--- Supported: 'okokTextUI' | 'cd_drawtextui' | 'tgiann-core' | 'ox' | 'auto'
+-- Supported: 'okokTextUI' | 'cd_drawtextui' | 'tgiann-core' | 'ox' | 'qb-core' | 'esx_textui' | 'auto'
+-- 'auto': a dedicated text UI resource, then ox_lib, then the framework's own (qb-core / esx_textui).
 LibConfig.TextUI = {
     provider = 'auto',
 }

@@ -38,6 +38,17 @@ local PROVIDERS = {
         hide = function(o) exports['tgiann-core']:ContextClose((o and o.name) or 'codem-lib') end,
     },
 
+    -- The frameworks' own prompts, so a script looks like every other script on the server.
+    ['qb-core'] = {
+        show = function(t, o) exports['qb-core']:DrawText(t, (o and o.position) or 'left') end,
+        hide = function() exports['qb-core']:HideText() end,
+    },
+
+    ['esx_textui'] = {
+        show = function(t) exports['esx_textui']:TextUI(t, 'info') end,
+        hide = function() exports['esx_textui']:HideUI() end,
+    },
+
     ['ox'] = {
         show = function(t, o)
             exports.ox_lib:showTextUI(t, { position = (o and o.position) or 'left-center', icon = o and o.icon })
@@ -48,6 +59,7 @@ local PROVIDERS = {
 
 -- 'auto' detection order — dedicated text UI scripts win; then ox_lib if running.
 local CANDIDATES = { 'okokTextUI', 'cd_drawtextui', 'tgiann-core' }
+local FRAMEWORK_UIS = { 'qb-core', 'esx_textui' }
 
 local function provider()
     local cfg = (LibConfig.TextUI and LibConfig.TextUI.provider) or 'auto'
@@ -55,8 +67,11 @@ local function provider()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
-    -- ox_lib only if it is actually running; no native TextUI fallback.
+    -- ox_lib if it is running, then the framework's own prompt.
     if CodemOxReady() then return 'ox' end
+    for _, res in ipairs(FRAMEWORK_UIS) do
+        if GetResourceState(res) == 'started' then return res end
+    end
     return 'none'
 end
 

@@ -27,7 +27,7 @@ end
 -- driving, so GetVehicleFuelLevel on a parked car can be stale — reading the
 -- native and writing it back through Set would visibly change the tank.
 local PROVIDERS = {
-    ['codem-supreme-fuel'] = { set = viaExport('codem-supreme-fuel'), get = readExport('codem-supreme-fuel') },
+    ['codem-fuel'] = { set = viaExport('codem-fuel'), get = readExport('codem-fuel') },
 
     ['ox_fuel'] = {
         set = function(v, n)
@@ -55,7 +55,7 @@ local PROVIDERS = {
 
 -- 'auto' detection order — first running resource wins.
 local CANDIDATES = {
-    'codem-supreme-fuel', 'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
+    'codem-fuel', 'ox_fuel', 'LegacyFuel', 'cdn-fuel', 'qb-fuel', 'lc_fuel', 'Renewed-Fuel',
     'myFuel', 'okokGasStation', 'qs-fuelstations', 'rcore_fuel', 'x-fuel',
 }
 

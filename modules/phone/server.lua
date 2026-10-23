@@ -22,6 +22,11 @@ function Phone.Get(identifier, character)
         return row and row.phone_number or nil
     end
 
+    if started('17mov_Phone') then
+        local ok, number = pcall(function() return exports['17mov_Phone']:GetNumberFromIdentifier(identifier) end)
+        if ok and number then return number end
+    end
+
     local char = character
     if type(char) ~= 'table' and type(Framework) == 'table' and Framework.Server and Framework.Server.GetCharacter then
         char = Framework.Server.GetCharacter(identifier)
@@ -43,12 +48,18 @@ function Phone.Owner(number)
         return row and row.owner or nil
     end
 
+    if started('17mov_Phone') then
+        local ok, owner = pcall(function() return exports['17mov_Phone']:GetIdentifierFromNumber(number) end)
+        return ok and owner or nil
+    end
+
     return nil
 end
 
 function Phone.Provider()
     if started('codem-phone') then return 'codem-phone' end
     if started('lb-phone') then return 'lb-phone' end
+    if started('17mov_Phone') then return '17mov_Phone' end
     return nil
 end
 

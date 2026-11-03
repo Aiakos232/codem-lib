@@ -28,6 +28,7 @@ client_scripts {
     'modules/hud/client.lua',
     'modules/progress/client.lua',
     'modules/skillcheck/client.lua',
+    'modules/minigame/client.lua',
     'modules/doorlock/client.lua',
     'modules/wardrobe/client.lua',
     'modules/weather/client.lua',

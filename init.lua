@@ -438,6 +438,12 @@ else
     ---@return boolean passed
     CodemLib.SkillCheck = function(difficulty, inputs) return exports[LIB]:SkillCheck(difficulty, inputs) end
 
+    ---Plays the server's own game for that kind of action (blocking).
+    ---@param kind 'lockpick'|'hotwire'|'wirecut'|'drill'|'lugnut'|'mash'|'sequence'|'safe'|'thermite'|'hack'|'skill'
+    ---@param opts? { difficulty?: 'easy'|'normal'|'hard' }
+    ---@return boolean won
+    CodemLib.Minigame = function(kind, opts) return exports[LIB]:Minigame(kind, opts) == true end
+
     CodemLib.Inventory = {
         Open = function(invType, data) return exports[LIB]:OpenInventory(invType, data) end,
         ---@return number

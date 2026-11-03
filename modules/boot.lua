@@ -139,6 +139,7 @@ local function summary()
     local textui = detect(LibConfig.TextUI and LibConfig.TextUI.provider, { 'okokTextUI', 'cd_drawtextui' }, oxUp and 'ox' or 'none')
     local progress = detect(LibConfig.Progress and LibConfig.Progress.provider, { 'progressbar' }, oxUp and 'ox' or 'none')
     local skillcheck = detect(LibConfig.SkillCheck and LibConfig.SkillCheck.provider, { 'ps-ui' }, oxUp and 'ox' or 'none')
+    local minigame = detect(LibConfig.Minigame and LibConfig.Minigame.provider, { 'codem-supreme-minigames', 'fa_minigames', 'bl_ui', 'lation_ui', 'boii_minigames', 'ps-ui', 'glow_minigames', 'qb-minigames' }, oxUp and 'ox' or 'none')
 
     return {
         { 'framework', framework },
@@ -160,6 +161,7 @@ local function summary()
         { 'textui', textui },
         { 'progress', progress },
         { 'skillcheck', skillcheck },
+        { 'minigame', minigame },
     }
 end
 

@@ -104,6 +104,14 @@ LibConfig.SkillCheck = {
     provider = 'auto',
 }
 
+-- Minigames for actions (lockpick, wirecut, drill, lugnut...). A provider without
+-- the game asked for plays its general skill game instead.
+-- Supported: 'codem-supreme-minigames' | 'fa_minigames' | 'bl_ui' | 'lation_ui' | 'boii_minigames'
+-- | 'ps-ui' | 'glow_minigames' | 'qb-minigames' | 'ox' | 'auto'
+LibConfig.Minigame = {
+    provider = 'auto',
+}
+
 -- Notification provider.
 -- Supported: 'codem-notification' | 'okokNotify' | 'brutal_notify'
 -- | 'g-notifications' | 'is_ui' | 'lation_ui' | 'vms_notifyv2' | 'wasabi_uikit'

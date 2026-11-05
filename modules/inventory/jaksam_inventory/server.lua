@@ -52,7 +52,11 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
 end
 
 Inventory.getItemSlot = function(playerId, slot)
-    return exports['jaksam_inventory']:GetSlot(playerId, slot)
+    return exports['jaksam_inventory']:getItemFromSlot(playerId, slot)
+end
+
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    return exports['jaksam_inventory']:setItemMetadataInSlot(playerId, slot, metadata)
 end
 
 Inventory.createShop = function(shopName, data)

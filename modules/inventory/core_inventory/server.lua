@@ -59,6 +59,11 @@ Inventory.getItemSlot = function(playerId, slot)
     local itemData = exports.core_inventory:getItemBySlot(playerId, slot)
     return itemData and {name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.metadata or {}} or nil
 end
+
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    return exports['core_inventory']:setMetadata(playerId, slot, metadata)
+end
+
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>
 --Item metadata comes from the framework's shared table; only the picture
 --folder is this inventory's own.

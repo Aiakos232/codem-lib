@@ -75,6 +75,11 @@ Inventory.getItemSlot = function(playerId, slot)
     local itemData = items[slot]
     return itemData and {name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.info or {}} or nil
 end
+
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    return exports['qs-inventory']:SetItemMetadata(playerId, slot, metadata)
+end
+
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>
 --Item metadata comes from the framework's shared table; only the picture
 --folder is this inventory's own.

@@ -83,6 +83,12 @@ Inventory.getItemSlot = function(playerId, slot)
         { name = itemData.name, label = itemData.label, amount = itemData.amount, metadata = itemData.info or {} } or nil
 end
 
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    local item = Inventory.getItemSlot(playerId, slot)
+    if not item then return false end
+    return exports['tgiann-inventory']:UpdateItemMetadata(playerId, item.name, slot, metadata)
+end
+
 Inventory.createShop = function(shopName, data)
     while GetResourceState('tgiann-inventory') ~= 'started' do
         Citizen.Wait(100)

@@ -46,6 +46,10 @@ Inventory.getItemSlot = function(playerId, slot)
     return exports['origen_inventory']:getSlot(playerId, slot)
 end
 
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    return exports['origen_inventory']:setMetadata(playerId, slot, metadata)
+end
+
 Inventory.createShop = function(shopName, data)
     while GetResourceState('origen_inventory') ~= 'started' do
         Citizen.Wait(100)

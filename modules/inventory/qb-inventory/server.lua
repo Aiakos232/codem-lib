@@ -94,6 +94,16 @@ Inventory.getItemSlot = function(playerId, slot)
         { name = itemSlot.name, label = itemSlot.label, amount = itemSlot.amount, metadata = itemSlot.info or {} } or nil
 end
 
+Inventory.setItemMetadata = function(playerId, slot, metadata)
+    local Player = LibGetQbPlayer(playerId)
+    local items = Player and Player.PlayerData.items
+    local item = items and items[tonumber(slot)]
+    if not item then return false end
+    item.info = metadata
+    Player.Functions.SetPlayerData('items', items)
+    return true
+end
+
 ---@param shopName: string [unique shop name]
 ---@param data: table [shop data]
 Inventory.createShop = function(shopName, data)

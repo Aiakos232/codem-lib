@@ -76,7 +76,7 @@ local QUERIES = {
         create      = [[
             INSERT INTO `player_vehicles`
                 (`license`, `citizenid`, `vehicle`, `hash`, `mods`, `plate`, `garage`, `state`, `fuel`, `engine`, `body`)
-            VALUES (?, ?, ?, ?, '{}', ?, ?, 1, 100, 1000, 1000)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 100, 1000, 1000)
         ]],
     },
     esx = {
@@ -599,6 +599,7 @@ function Vehicles.create(data)
             owner,
             model,
             GetHashKey(model),
+            json.encode({ model = GetHashKey(model), plate = plate }),
             plate,
             set.garage or data.garage or 'pillboxgarage',
         })

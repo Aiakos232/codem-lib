@@ -105,6 +105,7 @@ exports('GetFuel', getFuel)
 
 -- The server forwards sets here for client-side providers.
 RegisterNetEvent('codem-lib:fuel:set', function(netId, amount)
+    if not NetworkDoesNetworkIdExist(netId) then return end
     local vehicle = NetworkGetEntityFromNetworkId(netId)
     if vehicle ~= 0 then setFuel(vehicle, amount) end
 end)

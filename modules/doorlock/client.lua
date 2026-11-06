@@ -11,6 +11,8 @@ local lastLocked = {}
 local idByKey = {}
 local held = {}
 local frozen = {}
+local rest = {}
+local REST_DRIFT = 0.5
 
 local function gameModel(stored)
     local m = math.floor(tonumber(stored) or 0)
@@ -49,6 +51,28 @@ local function closestEntity(coords, model, radius)
         if GetEntityModel(ent) == model then return ent end
     end
     return nil
+end
+
+local function restOf(entity, model)
+    local known = rest[entity]
+    if not known or known.model ~= model then return nil end
+    if #(GetEntityCoords(entity) - known.coords) > REST_DRIFT then return nil end
+    return known
+end
+
+local function rememberRest(entity, model)
+    if restOf(entity, model) then return end
+    rest[entity] = {
+        model = model,
+        coords = GetEntityCoords(entity),
+        heading = GetEntityHeading(entity),
+    }
+end
+
+local function restHeading(entity)
+    if type(entity) ~= 'number' or not DoesEntityExist(entity) then return nil end
+    local known = restOf(entity, GetEntityModel(entity))
+    return known and known.heading or nil
 end
 
 local function inDoorSystem(hash)
@@ -156,6 +180,7 @@ local function pinShut(h)
     if not (ent and DoesEntityExist(ent)) then
         ent = closestEntity(h.coords, h.model)
         h.entity = ent
+        if ent then rememberRest(ent, h.model) end
     end
 
     killAuto(h.id)
@@ -266,6 +291,7 @@ local function applyNative(door)
         coords, model, ours, wideGuess and GARAGE_SEARCH or 4.0)
     local heading = tonumber(door.heading)
     local wide = isWide(model, entity)
+    if entity and not wide then rememberRest(entity, model) end
     local settled = inSystem or (entity ~= nil)
 
     if not settled and not wide then
@@ -356,6 +382,9 @@ local function clear()
     lastLocked = {}
     idByKey = {}
     held = {}
+    for entity in pairs(rest) do
+        if not DoesEntityExist(entity) then rest[entity] = nil end
+    end
 end
 
 CreateThread(function()
@@ -383,6 +412,7 @@ end)
 exports('ApplyDoorlock', apply)
 exports('ApplyDoorlockLeaves', applyLeaves)
 exports('ClearDoorlock', clear)
+exports('GetDoorRestHeading', restHeading)
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end

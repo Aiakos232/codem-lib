@@ -349,6 +349,7 @@ else
         Apply = function(door) return exports[LIB]:ApplyDoorlock(door) end,
         ApplyLeaves = function(leaves, locked) return exports[LIB]:ApplyDoorlockLeaves(leaves, locked) end,
         Clear = function() return exports[LIB]:ClearDoorlock() end,
+        RestHeading = function(entity) return exports[LIB]:GetDoorRestHeading(entity) end,
     }
 
     CodemLib.Garage = {

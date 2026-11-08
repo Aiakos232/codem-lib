@@ -117,4 +117,11 @@ Inventory.clearStash = function(stashId)
     return true
 end
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory(nil, nil, 'amount')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    live = function(kind, plate)
+        local items = exports['qs-inventory']:GetOtherInventoryItems(kind, plate)
+        return type(items) == 'table' and items or nil
+    end,
+})

@@ -124,3 +124,12 @@ Inventory.resizeStash = function(stashId, slots, weight)
     if not weight then return false end
     return exports['jaksam_inventory']:setInventoryMaxWeight(stashId, weight / 1000) == true
 end
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    live = function(kind, plate)
+        local id = exports['jaksam_inventory']:getInventoryIdFromPlate(plate, kind)
+        if not id then return nil end
+        local inv = exports['jaksam_inventory']:getInventory(id)
+        return type(inv) == 'table' and (inv.items or {}) or nil
+    end,
+})

@@ -127,4 +127,10 @@ Inventory.clearStash = function(stashId)
     return true
 end
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory('codem_new_inventory', 'identifier', 'amount')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory('codem_new_inventory', 'identifier', 'amount')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    saved = function(kind)
+        return { table = 'codem_new_vehicleandglovebox', key = 'plate', column = kind }
+    end,
+})

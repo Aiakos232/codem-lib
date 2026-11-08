@@ -359,6 +359,101 @@ function Vehicles.counts()
     return out
 end
 
+local MODEL_FILTER = {
+    qb = { where = 'v.`vehicle` = ?', plain = '`vehicle` = ?' },
+    esx = {
+        where = "JSON_EXTRACT(o.`vehicle`, '$.model') IN (?, ?)",
+        plain = "JSON_EXTRACT(`vehicle`, '$.model') IN (?, ?)",
+    },
+}
+
+local MODEL_SEARCH = {
+    qb = " AND (v.`plate` LIKE ? OR v.`citizenid` LIKE ? OR CONCAT(JSON_UNQUOTE(JSON_EXTRACT(p.`charinfo`, '$.firstname')), ' ', JSON_UNQUOTE(JSON_EXTRACT(p.`charinfo`, '$.lastname'))) LIKE ?)",
+    esx = " AND (o.`plate` LIKE ? OR o.`owner` LIKE ? OR CONCAT(u.`firstname`, ' ', u.`lastname`) LIKE ?)",
+}
+
+local function modelParams(fw, model)
+    if fw == 'qb' then return { model } end
+    local hash = GetHashKey(model)
+    local unsigned = hash < 0 and hash + 4294967296 or hash
+    local signed = hash >= 2147483648 and hash - 4294967296 or hash
+    return { signed, unsigned }
+end
+
+---@param model string spawn code
+function Vehicles.modelCounts(model)
+    local fw = framework()
+    if not fw or type(model) ~= 'string' or model == '' then return nil end
+    model = model:lower()
+
+    local tbl = fw == 'esx' and 'owned_vehicles' or 'player_vehicles'
+    local stateColumn = fw == 'esx' and '`stored`' or '`state`'
+    local rows = query(('SELECT %s AS `state`, COUNT(*) AS `count` FROM `%s` WHERE %s GROUP BY %s')
+        :format(stateColumn, tbl, MODEL_FILTER[fw].plain, stateColumn), modelParams(fw, model))
+    if not rows then return nil end
+
+    local out = { total = 0, garage = 0, impound = 0, outside = 0 }
+    for _, row in ipairs(rows) do
+        local count = tonumber(row.count) or 0
+        local key
+        if fw == 'esx' then
+            key = (tonumber(row.state) or 0) == 1 and 'garage' or 'outside'
+        else
+            key = QB_STATE[tonumber(row.state) or 0] or 'outside'
+        end
+        out[key] = out[key] + count
+        out.total = out.total + count
+    end
+    return out
+end
+
+---@param model string
+---@return string[]|nil
+function Vehicles.modelPlates(model)
+    local fw = framework()
+    if not fw or type(model) ~= 'string' or model == '' then return nil end
+    local tbl = fw == 'esx' and 'owned_vehicles' or 'player_vehicles'
+
+    local rows = query(('SELECT `plate` FROM `%s` WHERE %s'):format(tbl, MODEL_FILTER[fw].plain), modelParams(fw, model:lower()))
+    if not rows then return nil end
+
+    local out = {}
+    for _, row in ipairs(rows) do out[#out + 1] = trim(row.plate) end
+    return out
+end
+
+function Vehicles.modelOwners(model, search, limit, offset)
+    local fw = framework()
+    if not fw or type(model) ~= 'string' or model == '' then return nil end
+
+    local params = modelParams(fw, model:lower())
+    local filter = ' WHERE ' .. MODEL_FILTER[fw].where
+
+    if type(search) == 'string' and search ~= '' then
+        local like = '%' .. search:gsub('[%%_\\]', '\\%0') .. '%'
+        filter = filter .. MODEL_SEARCH[fw]
+        params[#params + 1] = like
+        params[#params + 1] = like
+        params[#params + 1] = like
+    end
+
+    local from = fw == 'esx'
+        and ' FROM `owned_vehicles` o LEFT JOIN `users` u ON u.identifier = o.owner'
+        or ' FROM `player_vehicles` v LEFT JOIN `players` p ON p.citizenid = v.citizenid'
+    local counted = query('SELECT COUNT(*) AS `total`' .. from .. filter, params)
+    local total = counted and counted[1] and tonumber(counted[1].total) or 0
+
+    local paged = { table.unpack(params) }
+    paged[#paged + 1] = math.max(1, math.min(math.floor(tonumber(limit) or 50), 200))
+    paged[#paged + 1] = math.max(0, math.floor(tonumber(offset) or 0))
+
+    local sql = (fw == 'esx' and SELECT_ESX or SELECT_QB) .. filter
+        .. (fw == 'esx' and ' ORDER BY o.plate' or ' ORDER BY {order}') .. ' LIMIT ? OFFSET ?'
+    local rows = query(sql, paged)
+    if not rows then return nil end
+    return { rows = normaliseAll(rows, fw), total = total }
+end
+
 --------------------------------------------------------------------------------
 -- Writes
 --------------------------------------------------------------------------------
@@ -646,6 +741,9 @@ exports('GetVehicle', function(plate) return Vehicles.get(plate) end)
 exports('GetStoredVehicles', function(owner) return Vehicles.stored(owner) end)
 exports('GetStoredVehicle', function(owner, plate) return Vehicles.storedOne(owner, plate) end)
 exports('GetVehicleCounts', function() return Vehicles.counts() end)
+exports('GetModelCounts', function(model) return Vehicles.modelCounts(model) end)
+exports('GetModelPlates', function(model) return Vehicles.modelPlates(model) end)
+exports('GetModelOwners', function(model, search, limit, offset) return Vehicles.modelOwners(model, search, limit, offset) end)
 exports('SetVehicleState', function(plate, state) return Vehicles.setState(plate, state) end)
 exports('SetVehiclePlate', function(plate, next_) return Vehicles.setPlate(plate, next_) end)
 exports('SetVehicleOwner', function(plate, owner, license) return Vehicles.setOwner(plate, owner, license) end)

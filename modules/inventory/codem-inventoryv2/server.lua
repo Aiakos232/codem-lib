@@ -173,4 +173,14 @@ Inventory.stashItems = function(stashId)
     return inv.items or {}
 end
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'count')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory(nil, nil, 'count')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    live = function(kind, plate)
+        local inv = exports['codem-inventoryv2']:GetInventory(kind .. plate, false)
+        return type(inv) == 'table' and (inv.items or {}) or nil
+    end,
+    saved = function(kind)
+        return { table = LibVehicleTable(), key = 'plate', column = kind }
+    end,
+})

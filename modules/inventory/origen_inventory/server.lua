@@ -127,3 +127,11 @@ Inventory.unguardStashes = function(handle)
     exports['origen_inventory']:removeHooks(handle)
     return true
 end
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    live = function(kind, plate)
+        local inv = exports['origen_inventory']:getInventoryItems(kind .. '_' .. plate)
+        if type(inv) ~= 'table' then return nil end
+        return inv.items or inv
+    end,
+})

@@ -215,6 +215,9 @@ if IsDuplicityVersion() then
         StoredOne = function(owner, plate) return exports[LIB]:GetStoredVehicle(owner, plate) end,
         ---@return { total: number, garage: number, impound: number, outside: number }|nil
         Counts = function() return exports[LIB]:GetVehicleCounts() end,
+        ModelCounts = function(model) return exports[LIB]:GetModelCounts(model) end,
+        ModelPlates = function(model) return exports[LIB]:GetModelPlates(model) end,
+        ModelOwners = function(model, search, limit, offset) return exports[LIB]:GetModelOwners(model, search, limit, offset) end,
         ---@param plate string, state 'garage'|'impound'|'outside' @return boolean
         SetState = function(plate, state) return exports[LIB]:SetVehicleState(plate, state) end,
         ---@param plate string, next string @return boolean
@@ -268,6 +271,9 @@ if IsDuplicityVersion() then
         Stash = function(stashId) return exports[LIB]:GetStashItems(stashId) end,
         ---@param characterId string @return table|nil items a character that is not in the server last saved
         Offline = function(characterId) return exports[LIB]:GetOfflineItems(characterId) end,
+        Holders = function(itemName, limit) return exports[LIB]:GetItemHolders(itemName, limit) end,
+        Summary = function() return exports[LIB]:GetItemSummary() end,
+        VehicleStorage = function(plate) return exports[LIB]:GetVehicleStorage(plate) end,
         ---@param characterId string, verb 'add'|'remove'|'clear', itemName? string, count? number, slot? number @return boolean|nil
         OfflineAction = function(characterId, verb, itemName, count, slot)
             return exports[LIB]:OfflineItemAction(characterId, verb, itemName, count, slot)

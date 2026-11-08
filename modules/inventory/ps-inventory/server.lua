@@ -176,4 +176,10 @@ Inventory.clearStash = function(stashId)
     return true
 end
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory(nil, nil, 'amount')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    saved = function(kind)
+        return { table = kind == 'trunk' and 'trunkitems' or 'gloveboxitems', key = 'plate', column = 'items' }
+    end,
+})

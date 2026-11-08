@@ -295,4 +295,10 @@ Inventory.unguardStashes = function(handle)
     return true
 end
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory('tgiann_inventory_player', 'citizenid', 'amount')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory('tgiann_inventory_player', 'citizenid', 'amount')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    saved = function(kind)
+        return { table = kind == 'trunk' and 'tgiann_inventory_trunkitems' or 'tgiann_inventory_gloveboxitems', key = 'plate', column = 'items' }
+    end,
+})

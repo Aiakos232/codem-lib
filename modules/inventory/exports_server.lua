@@ -113,6 +113,20 @@ exports('GetOfflineItems', function(characterId)
     return optional('offlineItems', characterId)
 end)
 
+exports('GetVehicleStorage', function(plate)
+    if type(plate) ~= 'string' or plate == '' then return nil end
+    return optional('vehicleStorage', plate)
+end)
+
+exports('GetItemSummary', function()
+    return optional('offlineSummary')
+end)
+
+exports('GetItemHolders', function(itemName, limit)
+    if type(itemName) ~= 'string' or itemName == '' then return nil end
+    return optional('offlineHolders', itemName, math.max(1, math.min(tonumber(limit) or 500, 2000)))
+end)
+
 ---@param characterId string
 ---@param verb 'add'|'remove'|'clear'
 ---@param itemName string|nil

@@ -277,4 +277,14 @@ AddEventHandler('onResourceStart', function(res)
     EnsureGuardHook()
 end)
 
-Inventory.offlineItems, Inventory.offlineAction = LibStoredInventory(nil, nil, 'amount')
+Inventory.offlineItems, Inventory.offlineAction, Inventory.offlineHolders, Inventory.offlineSummary = LibStoredInventory(nil, nil, 'amount')
+
+Inventory.vehicleStorage = LibVehicleStorage({
+    live = function(kind, plate)
+        local inv = exports['qb-inventory']:GetInventory(kind .. '-' .. plate)
+        return type(inv) == 'table' and (inv.items or {}) or nil
+    end,
+    saved = function(kind)
+        return { table = 'inventories', key = 'identifier', column = 'items', id = function(plate) return kind .. '-' .. plate end }
+    end,
+})

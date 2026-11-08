@@ -337,6 +337,162 @@ if IsDuplicityVersion() then
             return changed ~= nil and save(characterId, changed)
         end
 
-        return load, act
+        local function holders(itemName, limit)
+            local name, key = place()
+            local esx = GetResourceState('es_extended') == 'started'
+            local own = esx and FRAMEWORK_COLUMN.esx or FRAMEWORK_COLUMN.qb
+            local nameColumns = esx and 'o.`firstname` AS `first`, o.`lastname` AS `last`' or 'o.`charinfo` AS `charinfo`'
+
+            local sql
+            if name == own.table and key == own.key then
+                sql = ('SELECT o.`%s` AS `id`, o.`inventory` AS `inventory`, %s FROM `%s` o WHERE o.`inventory` LIKE ? LIMIT ?')
+                    :format(key, nameColumns, name)
+            else
+                sql = ('SELECT t.`%s` AS `id`, t.`inventory` AS `inventory`, %s FROM `%s` t LEFT JOIN `%s` o ON o.`%s` = t.`%s` WHERE t.`inventory` LIKE ? LIMIT ?')
+                    :format(key, nameColumns, name, own.table, own.key, key)
+            end
+
+            local pattern = '%"' .. itemName:gsub('[%%_\\]', '\\%0') .. '"%'
+            local rows = MySQL.Sync.fetchAll(sql, { pattern, math.floor(limit) }) or {}
+
+            local out = {}
+            for _, row in ipairs(rows) do
+                local ok, items = pcall(json.decode, row.inventory or '')
+                local total = 0
+                if ok and type(items) == 'table' then
+                    for _, entry in pairs(items) do
+                        if type(entry) == 'table' and (entry.name or entry.item) == itemName then
+                            total = total + math.floor(tonumber(entry.count or entry.amount) or 0)
+                        end
+                    end
+                end
+
+                if total > 0 then
+                    local display
+                    if esx then
+                        display = ('%s %s'):format(row.first or '', row.last or '')
+                    else
+                        local okInfo, info = pcall(json.decode, row.charinfo or '')
+                        if okInfo and type(info) == 'table' then
+                            display = ('%s %s'):format(info.firstname or '', info.lastname or '')
+                        end
+                    end
+                    display = display and display:gsub('^%s+', ''):gsub('%s+$', '') or nil
+                    out[#out + 1] = { id = tostring(row.id), name = display ~= '' and display or nil, count = total }
+                end
+            end
+            return out
+        end
+
+        local SUMMARY_CHUNK = 500
+
+        local function summary()
+            local name, key = place()
+            local first = ('SELECT `%s` AS `id`, `inventory` FROM `%s` ORDER BY `%s` LIMIT ?'):format(key, name, key)
+            local after = ('SELECT `%s` AS `id`, `inventory` FROM `%s` WHERE `%s` > ? ORDER BY `%s` LIMIT ?'):format(key, name, key, key)
+
+            local out, last = {}, nil
+            while true do
+                local rows = last and MySQL.query.await(after, { last, SUMMARY_CHUNK }) or MySQL.query.await(first, { SUMMARY_CHUNK })
+                if type(rows) ~= 'table' or #rows == 0 then break end
+
+                for _, row in ipairs(rows) do
+                    local ok, items = pcall(json.decode, row.inventory or '')
+                    if ok and type(items) == 'table' then
+                        local seen = {}
+                        for _, entry in pairs(items) do
+                            local itemName = type(entry) == 'table' and (entry.name or entry.item) or nil
+                            local amount = type(entry) == 'table' and math.floor(tonumber(entry.count or entry.amount) or 0) or 0
+                            if type(itemName) == 'string' and amount > 0 then
+                                seen[itemName] = (seen[itemName] or 0) + amount
+                            end
+                        end
+                        for itemName, amount in pairs(seen) do
+                            local slot = out[itemName]
+                            if not slot then
+                                slot = { holders = 0, count = 0 }
+                                out[itemName] = slot
+                            end
+                            slot.holders = slot.holders + 1
+                            slot.count = slot.count + amount
+                        end
+                    end
+                end
+
+                last = rows[#rows].id
+                if #rows < SUMMARY_CHUNK then break end
+                Wait(0)
+            end
+            return out
+        end
+
+        return load, act, holders, summary
+    end
+
+    local tableKnown = {}
+
+    ---@param name string
+    ---@return boolean
+    local function tableExists(name)
+        if tableKnown[name] == nil then
+            local found = MySQL.scalar.await(
+                'SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1', { name })
+            tableKnown[name] = found ~= nil
+        end
+        return tableKnown[name]
+    end
+
+    ---@param plate string
+    ---@return string[] trimmed first, then the 8 character in-game form
+    local function plateForms(plate)
+        local trimmed = tostring(plate):gsub('^%s+', ''):gsub('%s+$', '')
+        local padded = ('%-8s'):format(trimmed)
+        return padded ~= trimmed and { trimmed, padded } or { trimmed }
+    end
+
+    ---@param raw any
+    ---@return table|nil
+    local function decodeItems(raw)
+        if type(raw) == 'table' then return raw end
+        if type(raw) ~= 'string' or raw == '' then return nil end
+        local ok, items = pcall(json.decode, raw)
+        return ok and type(items) == 'table' and items or nil
+    end
+
+    ---@return string
+    function LibVehicleTable()
+        return GetResourceState('es_extended') == 'started' and 'owned_vehicles' or 'player_vehicles'
+    end
+
+    function LibVehicleStorage(spec)
+        local function readSaved(kind, forms)
+            local source = spec.saved and spec.saved(kind)
+            if not source or not tableExists(source.table) then return nil end
+
+            local sql = ('SELECT `%s` AS `items` FROM `%s` WHERE TRIM(`%s`) = ? LIMIT 1'):format(source.column, source.table, source.key)
+            local id = source.id and source.id(forms[1]) or forms[1]
+            local raw = MySQL.scalar.await(sql, { id })
+            return decodeItems(raw)
+        end
+
+        local function readLive(kind, forms)
+            if not spec.live then return nil end
+            for _, form in ipairs(forms) do
+                local ok, items = pcall(spec.live, kind, form)
+                if ok and type(items) == 'table' then return items end
+            end
+            return nil
+        end
+
+        return function(plate)
+            local forms = plateForms(plate)
+            local out = {}
+            for _, kind in ipairs({ 'trunk', 'glovebox' }) do
+                local live = readLive(kind, forms)
+                out[kind] = live or readSaved(kind, forms)
+                out[kind .. 'Live'] = live ~= nil
+            end
+            return out
+        end
     end
 end

@@ -55,7 +55,7 @@ end
 
 function Framework.Server.GetName(src)
     local xPlayer = Framework.Server.GetPlayer(src)
-    if xPlayer and xPlayer.getName then return xPlayer.getName() end
+    if xPlayer and xPlayer.getName then return (xPlayer.getName()) end
     return GetPlayerName(src) or ("Player %d"):format(src)
 end
 

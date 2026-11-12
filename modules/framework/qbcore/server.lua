@@ -84,7 +84,7 @@ function Framework.Server.GetName(src)
     local Player = Framework.Server.GetPlayer(src)
     local ci = Player and Player.PlayerData and Player.PlayerData.charinfo
     if ci and ci.firstname then
-        return ("%s %s"):format(ci.firstname, ci.lastname or ""):gsub("%s+$", "")
+        return (("%s %s"):format(ci.firstname, ci.lastname or ""):gsub("%s+$", ""))
     end
     return GetPlayerName(src) or ("Player %d"):format(src)
 end

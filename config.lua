@@ -173,7 +173,7 @@ LibConfig.Dispatch = {
 
 -- Garage provider (a lot codem-lib registers, and the menu that opens on it).
 -- Supported: 'codem-garage' | 'qbx_garages' | 'qb-garages' | 'cd_garage'
--- | 'qs-advancedgarages' | 'auto' | 'none'
+-- | 'qs-advancedgarages' | 'jg-advancedgarages' | 'auto' | 'none'
 -- codem-garage takes no garage of its own: it serves a lot through its house
 -- garage, so the car spawns where its own config's 'House Garage' entry says.
 LibConfig.Garage = {

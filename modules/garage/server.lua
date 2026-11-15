@@ -109,6 +109,38 @@ local function registerCd(point, opts)
     return true
 end
 
+-- jg-advancedgarages hands back its own id (prefixed with the calling resource); clients read it from GlobalState.
+-- Its markers stay off (manageInteractions = false): the script that owns the point opens it after its own checks.
+local function registerJg(point, opts)
+    if not running('jg-advancedgarages') then return false end
+    local name = garageName(point.motelId or point.lotId, point.id)
+    if sent[name] then return true end
+    local sx, sy, sz, sh = spawnOf(point.x, point.y, point.z, point.heading)
+    local options = {
+        id = name,
+        name = (point.label ~= nil and point.label ~= '') and point.label or (point.motelName or 'Garage'),
+        coords = vector3((tonumber(point.x) or 0.0) + 0.0, (tonumber(point.y) or 0.0) + 0.0, (tonumber(point.z) or 0.0) + 0.0),
+        spawnPoints = { vector4(sx, sy, sz, sh) },
+        vehicleType = vehicleTypeOf(opts),
+        access = false,
+        manageInteractions = false,
+    }
+    local key = 'codemlib:jg:' .. name
+    local known = GlobalState[key]
+    if known and exports['jg-advancedgarages']:updateGarage(known, options) then
+        sent[name] = true
+        return true
+    end
+    local id, err = exports['jg-advancedgarages']:registerGarage(options)
+    if not id then
+        print(('[codem-lib] jg-advancedgarages registerGarage "%s" failed: %s'):format(name, tostring(err)))
+        return false
+    end
+    GlobalState[key] = id
+    sent[name] = true
+    return true
+end
+
 local function registerName(point)
     sent[garageName(point.motelId or point.lotId, point.id)] = true
     return true
@@ -120,6 +152,7 @@ local PROVIDERS = {
     ['cd_garage']          = { scope = 'point', register = registerCd },
     ['codem-garage']       = { scope = 'point', register = registerName },
     ['qs-advancedgarages'] = { scope = 'point', register = registerName },
+    ['jg-advancedgarages'] = { scope = 'point', register = registerJg },
 }
 
 local function registerLot(lot, opts)

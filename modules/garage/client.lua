@@ -309,6 +309,16 @@ local function qsTakeOut(spot, plate)
     if CodemLib.Keys and CodemLib.Keys.Restore then pcall(CodemLib.Keys.Restore, veh, data.plate) end
 end
 
+local function openJg(spot)
+    local id = GlobalState['codemlib:jg:' .. tostring(spot.garageName)] or spot.garageName
+    if currentVehicle() then
+        if tryExport('jg-advancedgarages', 'storeVehicle', id) then return true end
+        return false, 'not_owned'
+    end
+    if tryExport('jg-advancedgarages', 'openGarage', id) then return true end
+    return false, 'failed'
+end
+
 local function openQs(spot)
     if currentVehicle() then
         if tryExport('qs-advancedgarages', 'OpenGarageMenu', spot.garageName) then return true end
@@ -367,6 +377,7 @@ local PROVIDERS = {
     ['qb-garages']         = { open = openQb,    bind = bindQb },
     ['cd_garage']          = { open = openCd,    bind = false },
     ['qs-advancedgarages'] = { open = openQs,    bind = bindQs },
+    ['jg-advancedgarages'] = { open = openJg,    bind = false },
 }
 
 CodemLib = CodemLib or {}

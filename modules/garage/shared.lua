@@ -1,5 +1,5 @@
 local CANDIDATES = {
-    'codem-garage', 'qs-advancedgarages', 'cd_garage', 'qbx_garages', 'qb-garages',
+    'codem-garage', 'qs-advancedgarages', 'jg-advancedgarages', 'cd_garage', 'qbx_garages', 'qb-garages',
 }
 
 local function provider()

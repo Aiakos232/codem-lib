@@ -135,7 +135,7 @@ LibConfig.Fuel = {
 }
 
 -- Vehicle key provider.
--- Supported: 'qbx_vehiclekeys' | 'qb-vehiclekeys' | 'wasabi_carlock'
+-- Supported: 'codem-vehiclekeys' | 'qbx_vehiclekeys' | 'qb-vehiclekeys' | 'wasabi_carlock'
 -- | 'Renewed-Vehiclekeys' | 'MrNewbVehicleKeys' | 'vehicles_keys'
 -- | 'tgiann-hotwire' | 'mVehicle' | 'okokGarage' | 'cd_garage' | 'ND_Core'
 -- | '0r-vehiclekeys' | 'LifeSaver_KeySystem' | 'ak47_qb_vehiclekeys'

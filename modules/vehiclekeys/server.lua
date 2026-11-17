@@ -31,6 +31,11 @@ end
 
 -- a = src, v = vehicle entity, p = plate. `false` = action not supported.
 local PROVIDERS = {
+    ['codem-vehiclekeys'] = {
+        give   = function(a, v, p) exports['codem-vehiclekeys']:giveKeys(a, (v and v ~= 0) and v or p) end,
+        remove = function(a, v, p) exports['codem-vehiclekeys']:removeKeys(a, (v and v ~= 0) and v or p) end,
+    },
+
     ['qbx_vehiclekeys'] = {
         give   = function(a, v) exports['qbx_vehiclekeys']:GiveKeys(a, v) end,
         remove = function(a, v) exports['qbx_vehiclekeys']:RemoveKeys(a, v) end,
@@ -90,7 +95,7 @@ local PROVIDERS = {
 -- 'auto' detection order — first running resource wins. Entries without a
 -- server implementation above are forwarded to the target player's client.
 local CANDIDATES = {
-    'qbx_vehiclekeys', 'qb-vehiclekeys', 'wasabi_carlock', 'Renewed-Vehiclekeys',
+    'codem-vehiclekeys', 'qbx_vehiclekeys', 'qb-vehiclekeys', 'wasabi_carlock', 'Renewed-Vehiclekeys',
     'MrNewbVehicleKeys', 'vehicles_keys', 'tgiann-hotwire', 'mVehicle',
     'okokGarage', 'cd_garage', 'ND_Core',
     '0r-vehiclekeys', 'LifeSaver_KeySystem', 'ak47_qb_vehiclekeys', 'ak47_vehiclekeys',
@@ -181,14 +186,27 @@ end)
 
 -- Providers that need a server export fall back to these events from the
 -- client side (qbx_vehiclekeys / ND_Core): net id -> entity + source player.
+local CLIENT_REACH = 10.0
+
+local function clientVehicle(src, netId)
+    local vehicle = NetworkGetEntityFromNetworkId(tonumber(netId) or 0)
+    if vehicle == 0 or not DoesEntityExist(vehicle) or GetEntityType(vehicle) ~= 2 then return nil end
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return nil end
+    if GetVehiclePedIsIn(ped, false) ~= vehicle and #(GetEntityCoords(ped) - GetEntityCoords(vehicle)) > CLIENT_REACH then return nil end
+    return vehicle
+end
+
 RegisterNetEvent('codem-lib:vkeys:give', function(netId)
     local src = source
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    if vehicle ~= 0 then giveKeys(src, vehicle) end
+    if provider() == 'codem-vehiclekeys' then return end
+    local vehicle = clientVehicle(src, netId)
+    if vehicle then giveKeys(src, vehicle) end
 end)
 
 RegisterNetEvent('codem-lib:vkeys:remove', function(netId)
     local src = source
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    if vehicle ~= 0 then removeKeys(src, vehicle) end
+    if provider() == 'codem-vehiclekeys' then return end
+    local vehicle = clientVehicle(src, netId)
+    if vehicle then removeKeys(src, vehicle) end
 end)

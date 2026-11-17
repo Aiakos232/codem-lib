@@ -131,3 +131,19 @@ Inventory.clearStash = function(stashId)
     exports['S-Inventory']:DeleteAllItems(id, id)
     return true
 end
+
+LibInventoryProviders['esx'] = {
+    supportsMetadata = false,
+    getPlayerItems = Inventory.getPlayerItems,
+    addItem = Inventory.addItem,
+    removeItem = Inventory.removeItem,
+    getItemCount = Inventory.getItemCount,
+    getItemSlot = Inventory.getItemSlot,
+    capacity = Inventory.capacity,
+    canCarry = function(playerId, itemName, itemCount)
+        local xPlayer = getESX().GetPlayerFromId(playerId)
+        if not xPlayer or not xPlayer.canCarryItem then return true end
+        return xPlayer.canCarryItem(itemName, itemCount or 1) ~= false
+    end,
+    itemCatalog = function() return LibFrameworkCatalog('nui://esx_inventory/') end,
+}

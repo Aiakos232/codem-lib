@@ -25,6 +25,7 @@ function LibGetInventoryResource()
     for _, res in ipairs(CANDIDATES) do
         if GetResourceState(res) == 'started' then return res end
     end
+    if GetResourceState('es_extended') == 'started' then return 'esx' end
     return nil
 end
 

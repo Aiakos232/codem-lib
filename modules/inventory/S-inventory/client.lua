@@ -37,6 +37,13 @@ Inventory.getItemCount = function(itemName)
     end
 end
 
+LibInventoryProviders['esx'] = {
+    getItemCount = function(itemName) return Inventory.getItemCount(itemName) or 0 end,
+    openInventory = function(invType)
+        if invType == 'player' then ExecuteCommand('inventory') end
+    end,
+}
+
 Inventory.getItemData = function(itemName)
     local info = GlobalState['codem-lib:itemsData'][itemName]
     return info and {name = itemName, label = info.label, description = info.description, image = ('https://cfx-nui-ox_inventory/web/images/%s.png'):format(itemName)}

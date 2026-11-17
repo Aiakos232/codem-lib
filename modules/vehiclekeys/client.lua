@@ -83,6 +83,11 @@ end
 
 -- v = vehicle entity, p = plate. `false` = action not supported.
 local PROVIDERS = {
+    ['codem-vehiclekeys'] = {
+        give   = function(v, p) exports['codem-vehiclekeys']:giveKeys(plateOf(v, p)) end,
+        remove = function(v, p) exports['codem-vehiclekeys']:removeKeys(plateOf(v, p)) end,
+    },
+
     ['qbx_vehiclekeys'] = {
         give   = viaServer('codem-lib:vkeys:give'),
         remove = viaServer('codem-lib:vkeys:remove'),
@@ -244,7 +249,7 @@ local PROVIDERS = {
 
 -- 'auto' detection order — first running resource wins.
 local CANDIDATES = {
-    'qbx_vehiclekeys', 'qb-vehiclekeys', 'wasabi_carlock', 'Renewed-Vehiclekeys',
+    'codem-vehiclekeys', 'qbx_vehiclekeys', 'qb-vehiclekeys', 'wasabi_carlock', 'Renewed-Vehiclekeys',
     'MrNewbVehicleKeys', 'vehicles_keys', 'tgiann-hotwire', 'mVehicle',
     'okokGarage', 'cd_garage', 'ND_Core',
     '0r-vehiclekeys', 'LifeSaver_KeySystem', 'ak47_qb_vehiclekeys', 'ak47_vehiclekeys',

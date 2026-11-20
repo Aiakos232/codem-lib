@@ -57,6 +57,7 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
 end
 
 Inventory.setItemMetadata = function(playerId, slot, metadata)
+    if not exports['ox_inventory']:GetSlot(playerId, slot) then return false end
     exports['ox_inventory']:SetMetadata(playerId, slot, metadata)
     return true
 end

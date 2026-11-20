@@ -57,8 +57,13 @@ Inventory.getItemCount = function(playerId, itemName, itemMetadata)
 end
 
 Inventory.setItemMetadata = function(playerId, slot, metadata)
-    exports['codem-inventoryv2']:SetMetadata(playerId, slot, metadata)
-    return true
+    if exports['codem-inventoryv2']:SetMetadata(playerId, slot, metadata) == true then return true end
+    if LibConfig.Debug then
+        local ok, encoded = pcall(json.encode, metadata)
+        print(('[codem-lib] Inventory.setItemMetadata via "codem-inventoryv2" failed: player %s, slot %s, metadata %s')
+            :format(tostring(playerId), tostring(slot), ok and encoded or tostring(metadata)))
+    end
+    return false
 end
 
 Inventory.getItemSlot = function(playerId, slot)

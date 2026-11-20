@@ -77,7 +77,9 @@ Inventory.getItemSlot = function(playerId, slot)
 end
 
 Inventory.setItemMetadata = function(playerId, slot, metadata)
-    return exports['codem-inventory']:SetItemMetadata(playerId, slot, metadata)
+    if not exports['codem-inventory']:GetItemBySlot(playerId, slot) then return false end
+    exports['codem-inventory']:SetItemMetadata(playerId, slot, metadata)
+    return true
 end
 
 --@return catalog: table<string, { label: string, weight: number, image: string|nil }>
